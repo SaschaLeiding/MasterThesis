@@ -124,7 +124,9 @@ This Script is to test downloaded Datasets
              
              scale = (realoutput/first(realoutput))*100, # voutput HAS TO BE CORRECTED by PPI
              scale_comp_techn = (CO2exclBiomass/first(CO2exclBiomass))*100,
-             scale_comp = (realouput_intensity/first(realouput_intensity))*100) # currently same as scale_comp_tech as voutput NOT corrected by PPI
+             scale_comp = (realouput_intensity/first(realouput_intensity))*100, # currently same as scale_comp_tech as voutput NOT corrected by PPI
+             techn = scale_comp_techn - scale_comp+100,
+             comp = scale_comp - scale+100)
     
     attr(dta_decomp[["CO2exclBiomass_intensity"]], 'label') <- "tons Emissions per 1,000 DKK"
     
@@ -157,8 +159,8 @@ This Script is to test downloaded Datasets
 # Line Plot of the Decomposition
 {
   dta_decomp_plot <- dta_decomp %>% filter(classif == 'Total') %>%
-    select(year, scale, scale_comp, scale_comp_techn) %>%
-    pivot_longer(cols = scale:scale_comp_techn, names_to = 'Effect', values_to = 'Values')
+    select(year, scale, scale_comp, scale_comp_techn, techn, comp) %>%
+    pivot_longer(cols = scale:comp, names_to = 'Effect', values_to = 'Values')
   
   lplot_decom <- ggplot(data = dta_decomp_plot, aes(x = year, y = Values, color = Effect, group = Effect)) +
     geom_line() +
@@ -168,8 +170,10 @@ This Script is to test downloaded Datasets
       color = NULL) +
     #scale_color_discrete(name = "Greenhouse Gases", labels = c("A", "B", "C")) +
     #scale_size(range = c(0.5, 1.2), guide = "none") +
-    scale_colour_manual(values = c("blue", "green", "black"),
-                        labels = c("Scale", "Scale & Composition", "Scale, Composition & Technique")) +
+    scale_colour_manual(values = c("blue", "green", "black", "red", "violet"))+#,
+                        #labels = c("Scale", "Scale & Composition", 
+                         #          "Scale, Composition & Technique", "Technique",
+                          #         "Composition")) +
     theme(legend.position = c(.20, .85))
   lplot_decom
 }
