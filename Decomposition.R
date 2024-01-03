@@ -27,13 +27,9 @@ The output for this script are Figure X and Figure X
   #
   {
     dta_decomp <- dta_decomp %>% group_by(classif) %>% arrange(year, .by_group = TRUE) %>%
-      mutate(CO2exclBiomass_intensity = CO2exclBiomass/(voutput/1000),
-             realoutput = voutput * (PPI/100),
-             realouput_intensity = (realoutput*CO2exclBiomass_intensity), # realouput HAS TO BE CORRECTED by correct PPI
-             
-             scale = (realoutput/first(realoutput))*100, # voutput HAS TO BE CORRECTED by PPI
+      mutate(scale = (realoutput/first(realoutput))*100, 
              scale_comp_techn = (CO2exclBiomass/first(CO2exclBiomass))*100,
-             scale_comp = (realouput_intensity/first(realouput_intensity))*100, # currently same as scale_comp_tech as voutput NOT corrected by PPI
+             scale_comp = (realouput_intensity/first(realouput_intensity))*100,
              techn = scale_comp_techn - scale_comp+100,
              comp = scale_comp - scale+100)
     
