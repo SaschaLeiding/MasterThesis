@@ -159,7 +159,7 @@ This Script is to test downloaded Datasets
 # Line Plot of the Decomposition
 {
   dta_decomp_plot <- dta_decomp %>% filter(classif == 'Total') %>%
-    select(year, scale, scale_comp, scale_comp_techn, techn, comp) %>%
+    select(year, scale, techn, comp) %>%
     pivot_longer(cols = scale:comp, names_to = 'Effect', values_to = 'Values')
   
   lplot_decom <- ggplot(data = dta_decomp_plot, aes(x = year, y = Values, color = Effect, group = Effect)) +
@@ -170,12 +170,12 @@ This Script is to test downloaded Datasets
       color = NULL) +
     #scale_color_discrete(name = "Greenhouse Gases", labels = c("A", "B", "C")) +
     #scale_size(range = c(0.5, 1.2), guide = "none") +
-    scale_colour_manual(values = c("blue", "green", "black", "red", "violet"))+#,
-                        #labels = c("Scale", "Scale & Composition", 
-                         #          "Scale, Composition & Technique", "Technique",
-                          #         "Composition")) +
-    theme(legend.position = c(.20, .85))
+    scale_colour_manual(values = c("blue", "green", "black"),
+                        labels = c("Composition", "Scale", "Technique")) +
+    theme(legend.position = c(.083, .9))
   lplot_decom
 }
+
+#Hallo
 
 
