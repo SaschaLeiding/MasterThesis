@@ -23,8 +23,6 @@ This Script is to test downloaded Datasets
   ppi <- read_xlsx("./Data/DK_PPIcommodities_Manufacturing.xlsx", range = "B3:KB46")
   
   ember <- read.csv("./Data/EMBER_ElectricityData.csv")
-  ppi <- read_xlsx("./Data/DK_PPIcommodities_Manufacturing.xlsx", range = "B3:KB46")
-  
 }
 
 # Transform Emissions Data for Merging and Create unique Emissions Dataset
@@ -112,7 +110,7 @@ This Script is to test downloaded Datasets
   dta_decomp <- na.omit(dta_decomp)
 }
 
-# Calulcate Emission Intensity, real Output and real Output Intensity
+# Calculate Emission Intensity, real Output and real Output Intensity
 {
   dta_decomp <- dta_decomp %>% group_by(classif) %>% arrange(year, .by_group = TRUE) %>%
     mutate(CO2exclBiomass_intensity = CO2exclBiomass/(voutput/1000),
