@@ -112,6 +112,11 @@ This Script is to test downloaded Datasets
   dta_decomp <- na.omit(dta_decomp)
 }
 
+# Save the Data
+{
+  saveRDS(dta_decomp, file = "./Data/dta_analysis.rds")
+}
+
 # Decomposition
 # SCALE IS NOT ADAPTED WITH PPI
 {
