@@ -183,9 +183,9 @@ This Script is to test downloaded Datasets
 # Calculate Emission Intensity, real Output and real Output Intensity
 {
   dta_decomp <- dta_decomp %>% group_by(classif) %>% arrange(year, .by_group = TRUE) %>%
-    mutate(CO2exclBiomass_intensity = CO2exclBiomass/(voutput/1000),
+    mutate(GHGinclBiomass_intensity = GHGinclBiomass/(voutput/1000),
            realoutput = voutput * (PPI/100),
-           realouput_intensity = (realoutput*CO2exclBiomass_intensity))
+           realouput_intensity = (realoutput*GHGinclBiomass_intensity))
 }
 
 # Save the Data

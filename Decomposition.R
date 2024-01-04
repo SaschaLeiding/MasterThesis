@@ -28,12 +28,12 @@ The output for this script are Figure X and Figure X
   {
     dta_decomp <- dta_decomp %>% group_by(classif) %>% arrange(year, .by_group = TRUE) %>%
       mutate(scale = (realoutput/first(realoutput))*100, 
-             scale_comp_techn = (CO2exclBiomass/first(CO2exclBiomass))*100,
+             scale_comp_techn = (GHGinclBiomass/first(GHGinclBiomass))*100,
              scale_comp = (realouput_intensity/first(realouput_intensity))*100,
              techn = scale_comp_techn - scale_comp+100,
              comp = scale_comp - scale+100)
     
-    attr(dta_decomp[["CO2exclBiomass_intensity"]], 'label') <- "tons Emissions per 1,000 DKK"
+    attr(dta_decomp[["GHGinclBiomass_intensity"]], 'label') <- "tons Emissions per 1,000 DKK"
     
   }
 }
@@ -42,7 +42,7 @@ The output for this script are Figure X and Figure X
 # Trends in Manufacturing Pollution Emissions
 {
   dta_emissions_plot <- dta_decomp %>% filter(classif == 'Total') %>%
-    select(year, realoutput, CO2exclBiomass, CO, SO2, NOx, PM10, PM2.5, NMVOC) %>%
+    select(year, realoutput, GHGinclBiomass, CO2inclBiomass, SO2, NOx, PM10, PM2.5, NMVOC) %>%
     pivot_longer(cols = realoutput:NMVOC, values_to = 'Value', names_to = 'Category') %>%
     group_by(Category) %>%
     mutate(normalized_Value = Value/ first(Value) * 100)
