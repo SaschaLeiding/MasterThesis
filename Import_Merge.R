@@ -13,20 +13,27 @@ This Script is to test downloaded Datasets
 
 # Load Data
 {
+  # Loading MRU1: Air Emission Accounts by industry and type of Emissions
   emissions_01 <- read_xlsx("./Data/DK_Emissions_117grouping_01.xlsx", range = "A3:E2763")
   emissions_02 <- read_xlsx("./Data/DK_Emissions_117grouping_02.xlsx", range = "A3:E2763")
   emissions_03 <- read_xlsx("./Data/DK_Emissions_117grouping_03.xlsx", range = "A3:E2763")
   emissions_04 <- read_xlsx("./Data/DK_Emissions_117grouping_04.xlsx", range = "A3:E2763")
   emissions_05 <- read_xlsx("./Data/DK_Emissions_117grouping_05.xlsx", range = "A3:E2763")
   
+  # Loading DRIVHUS: Greenhouse Gas Accounts (in CO2 equivalents) by industry, time and type of emission
+  emissionsEqui_01 <- read_xlsx("./Data/DK_EmissionsEquivalents_117grouping_01.xlsx", range = "A3:D3963")
+  emissionsEqui_02 <- read_xlsx("./Data/DK_EmissionsEquivalents_117grouping_02.xlsx", range = "A3:D3963")
+  emissionsEqui_03 <- read_xlsx("./Data/DK_EmissionsEquivalents_117grouping_03.xlsx", range = "A3:D3963")
+  emissionsEqui_04 <- read_xlsx("./Data/DK_EmissionsEquivalents_117grouping_04.xlsx", range = "A3:C3963")
+
   output <- read_xlsx("./Data/DK_OutputNominal_117grouping.xlsx", range = "C3:W122")
   ppi <- read_xlsx("./Data/DK_PPIcommodities_Manufacturing.xlsx", range = "B3:KB46")
-  ppi_mapp <- read("./Data/Mapping_PPI_117grouping.xslx", range = "B3:C120")
+  ppi_mapp <- read_xlsx("./Data/Mapping_PPI_117grouping.xlsx", range = "B3:C122")
   
   ember <- read.csv("./Data/EMBER_ElectricityData.csv")
 }
 
-# Transform Emissions Data for Merging and Create unique Emissions Dataset
+# Transform Air Emissions Accounts for Merging and Create unique Air Emissions Dataset
 {
   # Transform Emissions Data
   {
@@ -83,6 +90,66 @@ This Script is to test downloaded Datasets
   }
 }
 
+# Transform Greenhouse Gas Accounts for Merging and Create unique GHG Dataset
+{
+  # Transform Emissions Data
+  {
+    emissions_datalist <- list(emissionsEqui_01 = emissionsEqui_01,
+                               emissionsEqui_02 = emissionsEqui_02,
+                               emissionsEqui_03 = emissionsEqui_03,
+                               emissionsEqui_04 = emissionsEqui_04)
+    
+    for (dataset_name in names(emissions_datalist)) {
+      # Rename Columns 1 & 2 with to indicate classification 'classif' and 'year'
+      colnames(emissions_datalist[[dataset_name]])[1] <- "classif"
+      colnames(emissions_datalist[[dataset_name]])[2] <- "year"
+      
+      # Fill and Transform Data
+      emissions_datalist[[dataset_name]] <- emissions_datalist[[dataset_name]] %>% 
+        fill(classif) %>% # Fill Up NAs by respective classification
+        mutate(across(-(1:2), .fns=as.numeric)) # Transform Columns except 1 and 2 into numeric
+    }
+  }
+  
+  # Create unique Emissions Dataset
+  {
+    emissionsEqui <- emissions_datalist[["emissionsEqui_01"]] %>% 
+      left_join(emissions_datalist[["emissionsEqui_02"]], join_by(classif == classif, year == year)) %>%
+      left_join(emissions_datalist[["emissionsEqui_03"]], join_by(classif == classif, year == year)) %>%
+      left_join(emissions_datalist[["emissionsEqui_04"]], join_by(classif == classif, year == year))
+  }
+  
+  # Remove unnecessary Data
+  {
+    rm(emissionsEqui_datalist)
+    rm(emissionsEqui_01)
+    rm(emissionsEqui_02)
+    rm(emissionsEqui_03)
+    rm(emissionsEqui_04)
+    rm(dataset_name)
+  }
+  
+  # Rename Columns and Subheaders of Columns
+  {
+    # Create a list with new Variable Names
+    emissions_col_names <- c("classif", "year", "GHGexclBiomass", "GHGinclBiomass", 
+                             "CO2exclBiomass", "CO2fromBiomass", "N2O_Equi", "CH4_Equi", "Fgases_Equi")
+    # Create list with attributes
+    emissions_col_attr <-  colnames(emissionsEqui)
+    
+    # Rename them
+    for(i in 1:ncol(emissionsEqui)){
+      attr(emissionsEqui[[i]], 'label') <- emissions_col_attr[i]
+      colnames(emissionsEqui)[i] <- emissions_col_names[i]
+    }
+  }
+  
+  # Drop Columns 'CO2exclBiomass' and 'CO2fromBiomass' as already included in Air Emissions Accounts to Data
+  {
+    emissionsEqui <- emissionsEqui %>% select(-c('CO2exclBiomass', 'CO2fromBiomass'))
+  }
+}
+
 # Transform Output Data to be able to merge with emissions Data in longitudinal-format
 {
   colnames(output)[1] <- 'classif'
@@ -92,23 +159,25 @@ This Script is to test downloaded Datasets
 
 # Transform PPI Data to be able to merge with emissions Data in longitudinal-format
 {
-  colnames(ppi)[1] <- 'classif'
+  colnames(ppi)[1] <- 'classif' # Add column name for first column
   
-  ppi_t <- ppi %>% select(classif, ends_with("12"))
-  
-  ppi_tv04 <- ppi_t %>% filter(classif == 'BCD Mining and quarrying and manufacturing and energy supply') %>%
-    mutate(across(2:24, .fns=as.numeric)) %>%
-    pivot_longer(cols = 2:24, names_to = "year", values_to = "PPI") %>%
-    mutate(year = substring(year, 1, 4),
-           PPI= (PPI/first(PPI))*100)
+  ppi_trans <- ppi %>% select(classif, ends_with("12")) %>% # Drop all columns that contain the values of the month January-November
+    mutate(across(2:24, .fns=as.numeric)) %>% # Transform columns into numerics
+    pivot_longer(cols = 2:24, names_to = "year", values_to = "PPI") %>% # Transform data into longitudinal format
+    mutate(year = substring(year, 1, 4)) %>% # Drop month ('December') indicator
+    group_by(classif) %>%
+    mutate(PPI= (PPI/first(PPI))*100) # Rescale PPI with Base year 2000
 }
 
-# Merge Emissions and Output data
+# Merge Emissions, Output and PPI data
 {
-  dta_decomp <- emissions %>% left_join(output, join_by(classif == classif, year == year)) %>%
-    left_join((ppi_tv04 %>% select(year, PPI)), join_by(year == year)) %>%
-    filter(!(year %in% c(2020, 2021,2022)))
-  dta_decomp <- na.omit(dta_decomp)
+  dta_decomp <- emissions %>% # Take 'Air Emission Accounts' as Base data
+    left_join(emissionsEqui, join_by(classif == classif, year == year)) %>% # Join 'GHG in CO2-equivalents Data
+    left_join(output, join_by(classif == classif, year == year)) %>% # Join Output data
+    left_join(ppi_mapp, join_by(classif == Class_output)) %>% # Join Mapping for PPI to 117 grouping
+    left_join(ppi_trans, join_by(Class_PPI == classif, year == year))%>% # Join PPI values by previously inserted Mapping
+    filter(!(year %in% c(2020, 2021,2022))) # Disselect the entries of the years 2020-2022
+  dta_decomp <- na.omit(dta_decomp) # Drop all NA
 }
 
 # Calculate Emission Intensity, real Output and real Output Intensity
