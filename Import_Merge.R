@@ -21,6 +21,7 @@ This Script is to test downloaded Datasets
   
   output <- read_xlsx("./Data/DK_OutputNominal_117grouping.xlsx", range = "C3:W122")
   ppi <- read_xlsx("./Data/DK_PPIcommodities_Manufacturing.xlsx", range = "B3:KB46")
+  ppi_mapp <- read("./Data/Mapping_PPI_117grouping.xslx", range = "B3:C120")
   
   ember <- read.csv("./Data/EMBER_ElectricityData.csv")
 }
