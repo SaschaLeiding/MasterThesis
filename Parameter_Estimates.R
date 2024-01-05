@@ -19,3 +19,24 @@ The output for this script are Table X and X.
 {
   dta_decomp <- readRDS("./Data/dta_analysis.rds")
 }
+
+# Define variables for flexibility in Code
+ghg <- 'GHGinclBiomass' # Greenhouse gas for the analysis to allow flexibility in choice
+costs <- 'realexpend' # Define column used as Costs for calculations
+alpha <- 0.011 # mean Pollution elasticity
+
+# Create Data with parameters
+{
+  dta_parameter <- dta_decomp %>%
+    filter(classif != 'Total') %>%
+    group_by(year) %>%
+    mutate(tonsPollCost = !!sym(ghg)/!!sym(costs), # Calculating tons pollution per dollar costs
+           meantonsPollCost = sum(tonsPollCost)/117,
+           pollutionelasticity = alpha * (tonsPollCost/meantonsPollCost), # Calculating the Pollution elasticity with the mean alpha defined prior
+           inputshare = !!sym(costs)/realoutput, # Calculating the input share with costs defined prior
+           elasticitysubstitution = 1/(1-inputshare)) %>% # Calculating the Elasticity of Substitution by taking the ratio of the value of shipments to production costs, hence relying on assumption that firms engage in monopolistic competition
+    ungroup()
+  
+  # Test whether pollution Elasticity has been correctly calculated
+  mean((dta_parameter %>% filter(year == 2000))$pollutionelasticity)
+}

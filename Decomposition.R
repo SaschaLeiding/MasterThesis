@@ -15,29 +15,29 @@ The output for this script are Figure X and Figure X
   library(tidyverse)
 }
 
-
 # Load Data
 {
   dta_decomp <- readRDS("./Data/dta_analysis.rds")
 }
 
+# Define variables for flexibility in Code
+ghg <- 'GHGinclBiomass' # Greenhouse gas for the analysis to allow flexibility in choice
+
 # Decomposition
-# SCALE IS NOT ADAPTED WITH PPI
 {
   #
   {
     dta_decomp <- dta_decomp %>% group_by(classif) %>% arrange(year, .by_group = TRUE) %>%
       mutate(scale = (realoutput/first(realoutput))*100, 
-             scale_comp_techn = (GHGinclBiomass/first(GHGinclBiomass))*100,
+             scale_comp_techn = (!!sym(ghg)/first(!!sym(ghg)))*100,
              scale_comp = (realouput_intensity/first(realouput_intensity))*100,
              techn = scale_comp_techn - scale_comp+100,
              comp = scale_comp - scale+100)
     
-    attr(dta_decomp[["GHGinclBiomass_intensity"]], 'label') <- "tons Emissions per 1,000 DKK"
+    attr(dta_decomp[[ghg]], 'label') <- "tons Emissions per 1,000 DKK"
     
   }
 }
-
 
 # Trends in Manufacturing Pollution Emissions
 {

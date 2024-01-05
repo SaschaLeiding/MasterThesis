@@ -156,7 +156,7 @@ This Script is to test downloaded Datasets
 # Transform Output Data to be able to merge with emissions Data in longitudinal-format
 {
   output <- output_01 %>% fill(...1) %>% # Fill NAs in column transaction with above classification
-    full_join((output_02 %>% fill(...1))) # Join Data
+    full_join((output_02 %>% fill(...1)))# Join Data
   
   # Rename Columns for Output
   {
@@ -169,7 +169,7 @@ This Script is to test downloaded Datasets
     colnames(output)[7] <- 'GDPatFactorCosts'
     colnames(output)[8] <- 'CompEmployees'
     colnames(output)[9] <- 'GrossOpSurplus'
-  }
+    }
 }
 
 # Transform PPI Data to be able to merge with emissions Data in longitudinal-format
@@ -197,10 +197,18 @@ This Script is to test downloaded Datasets
 
 # Calculate Emission Intensity, real Output and real Output Intensity
 {
-  dta_decomp <- dta_decomp %>% group_by(classif) %>% arrange(year, .by_group = TRUE) %>%
-    mutate(GHGinclBiomass_intensity = GHGinclBiomass/(voutput/1000),
+  # Define variables for flexibility in Code
+  ghg <- 'GHGinclBiomass' # Greenhouse gas for the analysis to allow flexibility in choice
+  varname_ghgintensity <- paste0(ghg, "_intensity")
+  
+  dta_decomp <- dta_decomp %>% 
+    group_by(classif) %>% 
+    arrange(year, .by_group = TRUE) %>%
+    mutate(!!varname_ghgintensity := !!sym(ghg)/(voutput/1000),
            realoutput = voutput * (PPI/100),
-           realouput_intensity = (realoutput*GHGinclBiomass_intensity))
+           expend = interConsumption + CompEmployees,
+           realexpend = expend * (PPI/100),
+           realouput_intensity = (realoutput * (!!sym(varname_ghgintensity))))
 }
 
 # Save the Data
