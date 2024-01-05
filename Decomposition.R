@@ -6,6 +6,8 @@ The input for this script is the data 'dta_analysis.rds' from the script
 'Import_Merge.R'.
 
 The output for this script are Figure X and Figure X
+
+Attention: Variable 'ghg' must be the same in all Scripts
 "
 
 # Install & Load Packages

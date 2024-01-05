@@ -1,5 +1,7 @@
 "
 This Script is to test downloaded Datasets
+
+Attention: Variable 'ghg' must be the same in all Scripts
 "
 
 # Install & Load Packages
