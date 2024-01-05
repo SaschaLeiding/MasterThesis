@@ -25,8 +25,12 @@ This Script is to test downloaded Datasets
   emissionsEqui_02 <- read_xlsx("./Data/DK_EmissionsEquivalents_117grouping_02.xlsx", range = "A3:D3963")
   emissionsEqui_03 <- read_xlsx("./Data/DK_EmissionsEquivalents_117grouping_03.xlsx", range = "A3:D3963")
   emissionsEqui_04 <- read_xlsx("./Data/DK_EmissionsEquivalents_117grouping_04.xlsx", range = "A3:C3963")
-
-  output <- read_xlsx("./Data/DK_OutputNominal_117grouping.xlsx", range = "C3:W122")
+  
+  # Loading NABO: Production adn generation of income by price unity, transaction, industry and time
+  output_01 <- read_xlsx("./Data/DK_Production_117grouping_01.xlsx", range = "A4:F2384")
+  output_02 <- read_xlsx("./Data/DK_Production_117grouping_02.xlsx", range = "A4:E2384")
+  
+  #output <- read_xlsx("./Data/DK_OutputNominal_117grouping.xlsx", range = "C3:W122")
   ppi <- read_xlsx("./Data/DK_PPIcommodities_Manufacturing.xlsx", range = "B3:KB46")
   ppi_mapp <- read_xlsx("./Data/Mapping_PPI_117grouping.xlsx", range = "B3:C122")
   
@@ -121,7 +125,6 @@ This Script is to test downloaded Datasets
   
   # Remove unnecessary Data
   {
-    rm(emissionsEqui_datalist)
     rm(emissionsEqui_01)
     rm(emissionsEqui_02)
     rm(emissionsEqui_03)
@@ -152,9 +155,21 @@ This Script is to test downloaded Datasets
 
 # Transform Output Data to be able to merge with emissions Data in longitudinal-format
 {
-  colnames(output)[1] <- 'classif'
-  output <- output %>% pivot_longer(cols = 2:21, names_to = "year", values_to = "voutput")
-  attr(output[["voutput"]], 'label') <- "m DKK"
+  output <- output_01 %>% fill(...1) %>% # Fill NAs in column transaction with above classification
+    full_join((output_02 %>% fill(...1))) # Join Data
+  
+  # Rename Columns for Output
+  {
+    colnames(output)[1] <- 'classif'
+    colnames(output)[2] <- 'year'
+    colnames(output)[3] <- 'voutput'
+    colnames(output)[4] <- 'interConsumption'
+    colnames(output)[5] <- 'grossVA'
+    colnames(output)[6] <- 'TaxSubsidies'
+    colnames(output)[7] <- 'GDPatFactorCosts'
+    colnames(output)[8] <- 'CompEmployees'
+    colnames(output)[9] <- 'GrossOpSurplus'
+  }
 }
 
 # Transform PPI Data to be able to merge with emissions Data in longitudinal-format
