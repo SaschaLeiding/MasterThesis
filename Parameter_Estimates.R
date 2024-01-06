@@ -12,8 +12,10 @@ Attention: Variable 'ghg' must be the same in all Scripts
 # Install & Load Packages
 {
   #install.packages("tidyverse")
+  #install.packages("xtable")
   
   library(tidyverse)
+  library(xtable)
 }
 
 
@@ -41,4 +43,13 @@ alpha <- 0.011 # mean Pollution elasticity
   
   # Test whether pollution Elasticity has been correctly calculated
   mean((dta_parameter %>% filter(year == 2000))$pollutionelasticity)
+}
+
+# Exporting Parameters for year = 2000 to LATEX
+{
+  sectors <- c("")
+xtable(x = (dta_parameter %>%
+              mutate(classif = substr(classif, 8, 1000000L)) %>%
+              filter(year == 2000) %>%
+              select(classif, tonsPollCost, pollutionelasticity, inputshare, elasticitysubstitution)))
 }
