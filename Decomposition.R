@@ -34,7 +34,8 @@ ghg <- 'GHGinclBiomass' # Greenhouse gas for the analysis to allow flexibility i
              scale_comp_techn = (!!sym(ghg)/first(!!sym(ghg)))*100,
              scale_comp = (realouput_intensity/first(realouput_intensity))*100,
              techn = scale_comp_techn - scale_comp+100,
-             comp = scale_comp - scale+100)
+             comp = scale_comp - scale+100,
+             normalized_ghg = (!!sym(ghg)/first(!!sym(ghg)))*100)
     
     attr(dta_decomp[[ghg]], 'label') <- "tons Emissions per 1,000 DKK"
     
@@ -66,8 +67,8 @@ ghg <- 'GHGinclBiomass' # Greenhouse gas for the analysis to allow flexibility i
 # Line Plot of the Decomposition
 {
   dta_decomp_plot <- dta_decomp %>% filter(classif == 'Total') %>%
-    select(year, scale, techn, comp) %>%
-    pivot_longer(cols = scale:comp, names_to = 'Effect', values_to = 'Values')
+    select(year, scale, techn, comp, normalized_ghg) %>%
+    pivot_longer(cols = scale:normalized_ghg, names_to = 'Effect', values_to = 'Values')
   
   lplot_decom <- ggplot(data = dta_decomp_plot, aes(x = year, y = Values, color = Effect, group = Effect)) +
     geom_line() +
@@ -77,8 +78,8 @@ ghg <- 'GHGinclBiomass' # Greenhouse gas for the analysis to allow flexibility i
       color = NULL) +
     #scale_color_discrete(name = "Greenhouse Gases", labels = c("A", "B", "C")) +
     #scale_size(range = c(0.5, 1.2), guide = "none") +
-    scale_colour_manual(values = c("blue", "green", "black"),
-                        labels = c("Composition", "Scale", "Technique")) +
+    scale_colour_manual(values = c("blue", "black", "green", "red"),
+                        labels = c("Composition", "GHG", "Scale", "Technique")) +
     theme(legend.position = c(.083, .9))
   lplot_decom
 }

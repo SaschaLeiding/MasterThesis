@@ -71,16 +71,19 @@ Attention: Variable 'ghg' must be the same in all Scripts
   
   # Create unique Emissions Dataset
   {
-    emissions <- rbind((emissions_datalist[["emissions_01"]] %>% 
-      left_join(emissions_datalist[["emissions_02"]], join_by(classif == classif, year == year)) %>%
-      left_join(emissions_datalist[["emissions_03"]], join_by(classif == classif, year == year)) %>%
-      left_join(emissions_datalist[["emissions_04"]], join_by(classif == classif, year == year))),
+    emissions <- rbind((emissions_datalist[["emissions_01"]] %>% #Base Dataset
+      left_join(emissions_datalist[["emissions_02"]], join_by(classif == classif, year == year)) %>% # Join 117grouping Data
+      left_join(emissions_datalist[["emissions_03"]], join_by(classif == classif, year == year)) %>% # Join 117grouping Data
+      left_join(emissions_datalist[["emissions_04"]], join_by(classif == classif, year == year)) %>% # Join 117grouping Data
+        mutate(grouping = 117)), # Create Grouping variable
+      # Add 69-grouping Data
       (emissions_datalist[["emissions69_01"]]%>%
          filter(classif != 'Total' & classif != 'Households' & classif != 'Total industries')) %>%
         left_join((emissions_datalist[["emissions69_02"]])%>%
                     filter(classif != 'Total' & classif != 'Households' & classif != 'Total industries'),
-                  join_by(classif == classif, year == year))) %>%
-      left_join(emissions_datalist[["emissions_05"]], join_by(classif == classif, year == year))
+                  join_by(classif == classif, year == year)) %>%
+        mutate(grouping = 69)) %>% # Create Grouping variable
+      left_join(emissions_datalist[["emissions_05"]], join_by(classif == classif, year == year))# Join 117grouping Data of fluorinated gases
   }
   
   # Remove unnecessary Data
@@ -100,7 +103,7 @@ Attention: Variable 'ghg' must be the same in all Scripts
   {
     # Create a list with new Variable Names
     emissions_col_names <- c("classif", "year", "CO2inclBiomass", "CO2exclBiomass", "CO2fromBiomass", "SO2", "NOx",
-                             "CO", "NH3", "N2O", "CH4", "NMVOC", "PM10", "PM2.5", "SF6", "PFC", "HFC")
+                             "CO", "NH3", "N2O", "CH4", "NMVOC", "PM10", "PM2.5", "group", "SF6", "PFC", "HFC")
     # Create list with attributes
     emissions_col_attr <-  colnames(emissions)
     
@@ -230,12 +233,16 @@ Attention: Variable 'ghg' must be the same in all Scripts
 # Merge Emissions, Output and PPI data
 {
   dta_decomp <- emissions %>% # Take 'Air Emission Accounts' as Base data
-    left_join(emissionsEqui, join_by(classif == classif, year == year)) %>% # Join 'GHG in CO2-equivalents Data
+    left_join((emissionsEqui) %>% distinct(), # 'emissionsEqui' contains duplicates
+              join_by(classif == classif, year == year)) %>% # Join 'GHG in CO2-equivalents Data
+    # Note: 'emissionsEqui' contains duplicates
     left_join(output, join_by(classif == classif, year == year)) %>% # Join Output data
     left_join(ppi_mapp, join_by(classif == Class_output)) %>% # Join Mapping for PPI to 117 grouping
     left_join(ppi_trans, join_by(Class_PPI == classif, year == year))%>% # Join PPI values by previously inserted Mapping
-    filter(!(year %in% c(2020, 2021,2022))) # Disselect the entries of the years 2020-2022
+    filter(!(year %in% c(2020, 2021,2022))) %>% # Disselect the entries of the years 2020-2022
+    distinct()
   #dta_decomp <- na.omit(dta_decomp) # Drop all NA
+  # Note: Not dropping NA because all 69 grouping does not have values for invidual Fluorinated gases but its sum in CO2-equivalents
 }
 
 # Calculate Emission Intensity, real Output and real Output Intensity
@@ -252,6 +259,11 @@ Attention: Variable 'ghg' must be the same in all Scripts
            expend = interConsumption + CompEmployees,
            realexpend = expend * (PPI/100),
            realouput_intensity = (realoutput * (!!sym(varname_ghgintensity))))
+  
+  attr(dta_decomp$realoutput, 'label') <- 'm DKK'
+  attr(dta_decomp$expend, 'label') <- 'm DKK'
+  attr(dta_decomp$realexpend, 'label') <- 'm DKK'
+  attr(dta_decomp$realouput_intensity, 'label') <- '1,000 DKK per ton'
 }
 
 # Save the Data
