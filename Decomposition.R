@@ -8,6 +8,7 @@ The input for this script is the data 'dta_analysis.rds' from the script
 The output for this script are Figure X and Figure X
 
 Attention: Variable 'ghg' must be the same in all Scripts
+Print Plots as PDF in 'Landscape' 8.00 x 6.00
 "
 
 # Install & Load Packages
@@ -59,8 +60,11 @@ ghg <- 'GHGinclBiomass' # Greenhouse gas for the analysis to allow flexibility i
     scale_color_discrete(name = "Greenhouse Gases") +
     #scale_size(range = c(0.5, 1.2), guide = "none") +
     scale_colour_manual(values = c("#FF0000", "#CC6633", "#669900", "#CC3399", "#330099",
-                                   "#339999", "#00FFFF", "orange")) +
-    theme(legend.position = c(.1, .75))
+                                   "#339999", "#00FFFF", "orange"),
+                        labels = c("CO² incl. Biomass", "GHG incl. Biomass",
+                               "NVMOC", "Nitrogen Oxides", "Particular Matter < 10",
+                               "Particular Matter < 2.5", "Real Output", "Sulphur Dioxide")) +
+    theme(legend.position = c(.15, .75))
   lplot_emissions
 }
 
