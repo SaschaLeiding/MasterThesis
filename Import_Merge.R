@@ -32,11 +32,14 @@ Attention: Variable 'ghg' must be the same in all Scripts
   emissionsEqui69_01 <- read_xlsx("./Data/DK_EmissionsEquivalents_69grouping_01.xlsx", range = "A3:G1658")
   emissionsEqui69_02 <- read_xlsx("./Data/DK_EmissionsEquivalents_69grouping_02.xlsx", range = "A3:D1658")
   
-  # Loading NABO: Production adn generation of income by price unity, transaction, industry and time
+  # Loading NABO: Production and generation of income by price unity, transaction, industry and time
   output_01 <- read_xlsx("./Data/DK_Production_117grouping_01.xlsx", range = "A4:F2384")
   output_02 <- read_xlsx("./Data/DK_Production_117grouping_02.xlsx", range = "A4:E2384")
   output69_01 <- read_xlsx("./Data/DK_Production_69grouping_01.xlsx", range = "A4:F1495")
   output69_02 <- read_xlsx("./Data/DK_Production_69grouping_02.xlsx", range = "A4:E1495")
+  
+  # Loading Energy Cost data
+  cost_ener <- read_xlsx("./Data/DK_CostsEnergy_117grouping.xlsx", range = "B3:T987")
   
   #output <- read_xlsx("./Data/DK_OutputNominal_117grouping.xlsx", range = "C3:W122")
   ppi <- read_xlsx("./Data/DK_PPIcommodities_Manufacturing.xlsx", range = "B3:KB46")
@@ -228,6 +231,23 @@ Attention: Variable 'ghg' must be the same in all Scripts
     mutate(PPI= (PPI/first(PPI))*100) # Rescale PPI with Base year 2000
   
   ppi_mapp <- rbind(ppi_mapp, ppi_mapp69) %>% distinct(Class_output, .keep_all=TRUE)
+}
+
+# Transform Energy Cost Data
+{
+  colnames(cost_ener)[1] <- 'costtype'
+  colnames(cost_ener)[2] <- 'classif'
+  
+  cost_ener_trans <- cost_ener %>%
+    fill(costtype) %>%
+    pivot_longer(cols = starts_with("20"),
+                 names_to = 'year',
+                 values_to = '.value') %>%
+    pivot_wider(names_from = costtype,
+                values_from = .value) %>%
+    select(1, 2, 9) %>%
+    rename(costEnergy = 'Energy expense at purchacers prices (7=1+ ... +6)') %>%
+    
 }
 
 # Merge Emissions, Output and PPI data
