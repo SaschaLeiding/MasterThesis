@@ -247,7 +247,12 @@ Attention: Variable 'ghg' must be the same in all Scripts
                 values_from = .value) %>%
     select(1, 2, 9) %>%
     rename(costEnergy = 'Energy expense at purchacers prices (7=1+ ... +6)') %>%
-    
+    left_join((ppi_trans %>%
+                 ungroup() %>%
+                 filter(classif == "Energy (MIG)") %>%
+                 select(year, PPI)),
+              join_by(year == year)) %>%
+    mutate(realcostEnergy = round((costEnergy / (PPI/100)), digits = 2))
 }
 
 # Merge Emissions, Output and PPI data
@@ -275,9 +280,9 @@ Attention: Variable 'ghg' must be the same in all Scripts
     group_by(classif) %>% 
     arrange(year, .by_group = TRUE) %>%
     mutate(!!varname_ghgintensity := !!sym(ghg)/(voutput/1000),
-           realoutput = voutput * (PPI/100),
+           realoutput = voutput / (PPI/100),
            expend = interConsumption + CompEmployees,
-           realexpend = expend * (PPI/100),
+           realexpend = expend / (PPI/100),
            realouput_intensity = (realoutput * (!!sym(varname_ghgintensity))))
   
   attr(dta_decomp$realoutput, 'label') <- 'm DKK'
