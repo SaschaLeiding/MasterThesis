@@ -68,7 +68,27 @@ ghg <- 'GHGinclBiomass' # Greenhouse gas for the analysis to allow flexibility i
   lplot_emissions
 }
 
-# Line Plot of the Decomposition
+# Line Plot of the decomposition - standard depiction
+{
+  dta_decomp_plot_stand <- dta_decomp %>% filter(classif == 'Total') %>%
+    select(year, scale, scale_comp_techn, scale_comp) %>%
+    pivot_longer(cols = scale:scale_comp, names_to = 'Effect', values_to = 'Values')
+  
+  lplot_decomstand <- ggplot(data = dta_decomp_plot_stand, 
+                             aes(x = year, y = Values, color = Effect, group = Effect)) +
+    geom_line() +
+    labs(#title = "Development of various Greenhouse Gas Emissions",
+      x = "Year",
+      y = "Base 2000 = 100",
+      color = NULL) +
+    scale_colour_manual(values = c("blue", "black", "green", "red"),
+                        labels = c("Scale", "Scale and Composition", 
+                                   "Scale, Composition and Technique")) +
+    theme(legend.position = c(.083, .9))
+  lplot_decomstand
+}
+
+# Line Plot of the Decomposition - indivdual effects
 {
   dta_decomp_plot <- dta_decomp %>% filter(classif == 'Total') %>%
     select(year, scale, techn, comp, normalized_ghg) %>%
