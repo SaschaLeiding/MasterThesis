@@ -30,7 +30,7 @@ alpha <- 0.011 # mean Pollution elasticity
 group_ind <- 117 # either 69 or 117
 excl_117 <- c("Total", "Households", "Total industries")
 excl_69 <- c("Total")
-
+base_year <- 2005 # Base year for parameter
 
 # Create Data with parameters
 {
@@ -41,24 +41,24 @@ excl_69 <- c("Total")
     filter(!(classif %in% excl_117) & group == group_ind) %>%
     group_by(year) %>%
     mutate(tonsPollCost = (!!sym(ghg)*1000)/!!sym(costs), # Calculating tons pollution per dollar costs
-           meantonsPollCost = sum(tonsPollCost)/group_ind,
+           meantonsPollCost = sum(tonsPollCost, na.rm=TRUE)/group_ind,
            pollutionelasticity = alpha * (tonsPollCost/meantonsPollCost), # Calculating the Pollution elasticity with the mean alpha defined prior
            inputshare = !!sym(costs)/realoutput, # Calculating the input share with costs defined prior
            elasticitysubstitution = 1/(1-inputshare)) %>% # Calculating the Elasticity of Substitution by taking the ratio of the value of shipments to production costs, hence relying on assumption that firms engage in monopolistic competition
     ungroup()
   
   # Test whether pollution Elasticity has been correctly calculated
-  mean((dta_parameter %>% filter(year == 2000))$pollutionelasticity)
+  mean((dta_parameter %>% filter(year == base_year))$pollutionelasticity)
   
   attr(dta_parameter$tonsPollCost, 'label') <- 'Tons pollution per 1,000,000 DKK'
 }
 
-# Exporting Parameters for year = 2000 to LATEX
+# Exporting Parameters for base year to LATEX
 {
   # Create a Table for LATEX format
   table_parameters <- xtable(x = (dta_parameter %>%
                                   mutate(classif = substr(classif, 8, 1000000L)) %>%
-                                  filter(year == 2000) %>%
+                                  filter(year == base_year) %>%
                                   select(classif, tonsPollCost, pollutionelasticity, inputshare, elasticitysubstitution) %>%
                                   arrange(desc(tonsPollCost)) %>% # Arrange table in descending order by tons Pollution per m DKK costs
                                   slice(1:15)),

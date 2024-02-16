@@ -25,18 +25,22 @@ Print Plots as PDF in 'Landscape' 8.00 x 6.00
 
 # Define variables for flexibility in Code
 ghg <- 'GHGinclBiomass' # Greenhouse gas for the analysis to allow flexibility in choice
+base_year <- 2005 # Base year for the normalizing the 3 effects
 
 # Decomposition
 {
   #
   {
-    dta_decomp <- dta_decomp %>% group_by(classif) %>% arrange(year, .by_group = TRUE) %>%
-      mutate(scale = (realoutput/first(realoutput))*100, 
-             scale_comp_techn = (!!sym(ghg)/first(!!sym(ghg)))*100,
-             scale_comp = (realouput_intensity/first(realouput_intensity))*100,
-             techn = scale_comp_techn - scale_comp+100,
-             comp = scale_comp - scale+100,
-             normalized_ghg = (!!sym(ghg)/first(!!sym(ghg)))*100)
+    dta_decomp <- dta_decomp %>% 
+      group_by(classif) %>% 
+      arrange(year, .by_group = TRUE) %>%
+      mutate(scale = (realoutput / realoutput[year == base_year]) * 100, 
+             scale_comp_techn = (!!sym(ghg) / (!!sym(ghg))[year == base_year]) * 100,
+             scale_comp = (realouput_intensity / realouput_intensity[year == base_year]) * 100,
+             techn = scale_comp_techn - scale_comp + 100,
+             comp = scale_comp - scale + 100,
+             normalized_ghg = (!!sym(ghg) / (!!sym(ghg))[year == base_year]) * 100) %>%
+    ungroup()
     
     attr(dta_decomp[[ghg]], 'label') <- "tons Emissions per 1,000 DKK"
     
@@ -45,20 +49,20 @@ ghg <- 'GHGinclBiomass' # Greenhouse gas for the analysis to allow flexibility i
 
 # Trends in Manufacturing Pollution Emissions
 {
-  dta_emissions_plot <- dta_decomp %>% filter(classif == 'Total') %>%
+  dta_emissions_plot <- dta_decomp %>% 
+    filter(classif == 'Total') %>%
     select(year, realoutput, GHGinclBiomass, CO2inclBiomass, SO2, NOx, PM10, PM2.5, NMVOC) %>%
     pivot_longer(cols = realoutput:NMVOC, values_to = 'Value', names_to = 'Category') %>%
     group_by(Category) %>%
-    mutate(normalized_Value = Value/ first(Value) * 100)
+    mutate(normalized_Value = Value/ Value[year == base_year] * 100) %>%
+    ungroup()
   
   lplot_emissions <- ggplot(data = dta_emissions_plot, aes(x = year, y = normalized_Value, color = Category, group = Category)) +
     geom_line() +
     labs(#title = "Development of various Greenhouse Gas Emissions",
       x = "Year",
-      y = "Base 2000 = 100",
+      y = paste0("Base ", base_year, " = 100"),
       color = NULL) +
-    scale_color_discrete(name = "Greenhouse Gases") +
-    #scale_size(range = c(0.5, 1.2), guide = "none") +
     scale_colour_manual(values = c("#FF0000", "#CC6633", "#669900", "#CC3399", "#330099",
                                    "#339999", "#00FFFF", "orange"),
                         labels = c("CO² incl. Biomass", "GHG incl. Biomass",
@@ -76,32 +80,30 @@ ghg <- 'GHGinclBiomass' # Greenhouse gas for the analysis to allow flexibility i
   
   lplot_decomstand <- ggplot(data = dta_decomp_plot_stand, 
                              aes(x = year, y = Values, color = Effect, group = Effect)) +
-    geom_line() +
+    geom_line(size = 1) +
     labs(#title = "Development of various Greenhouse Gas Emissions",
       x = "Year",
-      y = "Base 2000 = 100",
+      y = paste0("Base ", base_year, " = 100"),
       color = NULL) +
-    scale_colour_manual(values = c("blue", "black", "green", "red"),
+    scale_colour_manual(values = c("blue", "green", "red"),
                         labels = c("Scale", "Scale and Composition", 
                                    "Scale, Composition and Technique")) +
     theme(legend.position = c(.083, .9))
   lplot_decomstand
 }
 
-# Line Plot of the Decomposition - indivdual effects
+# Line Plot of the Decomposition - individual effects
 {
   dta_decomp_plot <- dta_decomp %>% filter(classif == 'Total') %>%
     select(year, scale, techn, comp, normalized_ghg) %>%
     pivot_longer(cols = scale:normalized_ghg, names_to = 'Effect', values_to = 'Values')
   
   lplot_decom <- ggplot(data = dta_decomp_plot, aes(x = year, y = Values, color = Effect, group = Effect)) +
-    geom_line() +
+    geom_line(size = 1) +
     labs(#title = "Development of various Greenhouse Gas Emissions",
       x = "Year",
-      y = "Base 2000 = 100",
+      y = paste0("Base ", base_year, " = 100"),
       color = NULL) +
-    #scale_color_discrete(name = "Greenhouse Gases", labels = c("A", "B", "C")) +
-    #scale_size(range = c(0.5, 1.2), guide = "none") +
     scale_colour_manual(values = c("blue", "black", "green", "red"),
                         labels = c("Composition", "GHG", "Scale", "Technique")) +
     theme(legend.position = c(.083, .9))

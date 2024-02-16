@@ -1,7 +1,7 @@
 "
 This Script is to test downloaded Datasets
 
-Attention: Variable 'ghg' must be the same in all Scripts
+Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
 "
 
 # Install & Load Packages
@@ -47,6 +47,13 @@ Attention: Variable 'ghg' must be the same in all Scripts
   ppi_mapp69 <- read_xlsx("./Data/Mapping_PPI_69grouping.xlsx", range = "B2:C73")
   
   ember <- read.csv("./Data/EMBER_ElectricityData.csv")
+}
+
+# Define variables for code flexibility
+{
+  ghg <- 'GHGinclBiomass' # Greenhouse gas for the analysis to allow flexibility in choice
+  varname_ghgintensity <- paste0(ghg, "_intensity")
+  base_year <- 2005
 }
 
 # Transform Air Emissions Accounts for Merging and Create unique Air Emissions Dataset
@@ -228,7 +235,8 @@ Attention: Variable 'ghg' must be the same in all Scripts
     pivot_longer(cols = 2:24, names_to = "year", values_to = "PPI") %>% # Transform data into longitudinal format
     mutate(year = substring(year, 1, 4)) %>% # Drop month ('December') indicator
     group_by(classif) %>%
-    mutate(PPI= (PPI/first(PPI))*100) # Rescale PPI with Base year 2000
+    mutate(PPI = (PPI/PPI[year == base_year])*100) # Rescale PPI with Base year 2000 %>%
+  ungroup()
   
   ppi_mapp <- rbind(ppi_mapp, ppi_mapp69) %>% distinct(Class_output, .keep_all=TRUE)
 }
@@ -258,24 +266,19 @@ Attention: Variable 'ghg' must be the same in all Scripts
 # Merge Emissions, Output and PPI data
 {
   dta_decomp <- emissions %>% # Take 'Air Emission Accounts' as Base data
-    left_join((emissionsEqui) %>% distinct(), # 'emissionsEqui' contains duplicates
+    left_join((emissionsEqui) %>% distinct(), # Note: 'emissionsEqui' contains duplicates
               join_by(classif == classif, year == year)) %>% # Join 'GHG in CO2-equivalents Data
-    # Note: 'emissionsEqui' contains duplicates
     left_join(output, join_by(classif == classif, year == year)) %>% # Join Output data
     left_join(ppi_mapp, join_by(classif == Class_output)) %>% # Join Mapping for PPI to 117 grouping
     left_join(ppi_trans, join_by(Class_PPI == classif, year == year))%>% # Join PPI values by previously inserted Mapping
     filter(!(year %in% c(2020, 2021,2022))) %>% # Disselect the entries of the years 2020-2022
     distinct()
   #dta_decomp <- na.omit(dta_decomp) # Drop all NA
-  # Note: Not dropping NA because all 69 grouping does not have values for invidual Fluorinated gases but its sum in CO2-equivalents
+  # Note: Not dropping NA because all 69 grouping does not have values for individual Fluorinated gases but its sum in CO2-equivalents
 }
 
 # Calculate Emission Intensity, real Output and real Output Intensity
 {
-  # Define variables for flexibility in Code
-  ghg <- 'GHGinclBiomass' # Greenhouse gas for the analysis to allow flexibility in choice
-  varname_ghgintensity <- paste0(ghg, "_intensity")
-  
   dta_decomp <- dta_decomp %>% 
     group_by(classif) %>% 
     arrange(year, .by_group = TRUE) %>%
