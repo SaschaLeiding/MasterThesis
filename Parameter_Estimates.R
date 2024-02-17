@@ -51,6 +51,22 @@ base_year <- 2005 # Base year for parameter
   mean((dta_parameter %>% filter(year == base_year))$pollutionelasticity)
   
   attr(dta_parameter$tonsPollCost, 'label') <- 'Tons pollution per 1,000,000 DKK'
+  
+  
+  # test ZEW Method with Point-slope Elasticity
+  dta_parameter_t <- dta_parameter %>%
+    group_by(classif) %>%
+    arrange(year, .by_group = TRUE) %>%
+    # quantity (realoutput) and energy as p
+    mutate(energyshare = costEnergy/voutput,
+           chngOutputEnergyZEW = (lead(energyshare) - energyshare)/(lead(realoutput) - realoutput),
+           elasticityOutputEnergyZEW = (1/chngOutputEnergyZEW) * (energyshare/realoutput),
+           
+           chngEmissionEnergyZEW = (lead(energyshare) - energyshare)/(lead(!!sym(ghg)) - !!sym(ghg)),
+           elasticityEmissionEnergyZEW = (1/chngEmissionEnergyZEW) * (energyshare/!!sym(ghg)),
+           
+           pollutionelasticityZEW = elasticityOutputEnergyZEW/elasticityEmissionEnergyZEW) %>%
+    select(classif, year, pollutionelasticity, pollutionelasticityZEW)
 }
 
 # Exporting Parameters for base year to LATEX
