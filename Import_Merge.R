@@ -39,11 +39,11 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
   output69_02 <- read_xlsx("./Data/DK_Production_69grouping_02.xlsx", range = "A4:E1495")
   
   # Loading Energy Cost data
-  cost_ener <- read_xlsx("./Data/DK_CostsEnergy_117grouping.xlsx", range = "B3:T987")
+  cost_ener <- read_xlsx("./Data/DK_CostsEnergy.xlsx", range = "B3:T1915")
   
   #output <- read_xlsx("./Data/DK_OutputNominal_117grouping.xlsx", range = "C3:W122")
   ppi <- read_xlsx("./Data/DK_PPIcommodities_Manufacturing.xlsx", range = "B3:KB46")
-  ppi_mapp <- read_xlsx("./Data/Mapping_PPI_117grouping.xlsx", range = "B3:C122")
+  ppi_mapp117 <- read_xlsx("./Data/Mapping_PPI_117grouping.xlsx", range = "B3:G122")
   ppi_mapp69 <- read_xlsx("./Data/Mapping_PPI_69grouping.xlsx", range = "B2:C73")
   
   ember <- read.csv("./Data/EMBER_ElectricityData.csv")
@@ -235,10 +235,17 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
     pivot_longer(cols = 2:24, names_to = "year", values_to = "PPI") %>% # Transform data into longitudinal format
     mutate(year = substring(year, 1, 4)) %>% # Drop month ('December') indicator
     group_by(classif) %>%
-    mutate(PPI = (PPI/PPI[year == base_year])*100) # Rescale PPI with Base year 2000 %>%
-  ungroup()
+    mutate(PPI = (PPI/PPI[year == base_year])*100) %>% # Rescale PPI with Base year 2000
+    ungroup()
   
-  ppi_mapp <- rbind(ppi_mapp, ppi_mapp69) %>% distinct(Class_output, .keep_all=TRUE)
+  ppi_mapp <- ppi_mapp117 %>%
+    full_join(ppi_mapp69) %>%
+    distinct(Class_output, .keep_all=TRUE)
+  
+  # Remove unnecessary data
+  rm(ppi_mapp117)
+  rm(ppi_mapp69)
+  rm(ppi)
 }
 
 # Transform Energy Cost Data
@@ -270,7 +277,9 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
               join_by(classif == classif, year == year)) %>% # Join 'GHG in CO2-equivalents Data
     left_join(output, join_by(classif == classif, year == year)) %>% # Join Output data
     left_join(ppi_mapp, join_by(classif == Class_output)) %>% # Join Mapping for PPI to 117 grouping
-    left_join(ppi_trans, join_by(Class_PPI == classif, year == year))%>% # Join PPI values by previously inserted Mapping
+    left_join(ppi_trans, join_by(Class_PPI == classif, year == year)) %>% # Join PPI values by previously inserted Mapping
+    left_join((cost_ener_trans %>% select(!PPI)), 
+              join_by(classif == classif, year == year)) %>%
     filter(!(year %in% c(2020, 2021,2022))) %>% # Disselect the entries of the years 2020-2022
     distinct()
   #dta_decomp <- na.omit(dta_decomp) # Drop all NA
