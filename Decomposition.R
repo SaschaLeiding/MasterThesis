@@ -27,6 +27,16 @@ Print Plots as PDF in 'Landscape' 8.00 x 6.00
 ghg <- 'GHGinclBiomass' # Greenhouse gas for the analysis to allow flexibility in choice
 base_year <- 2005 # Base year for the normalizing the 3 effects
 
+testISIC <- unique(dta_decomp$classif)[11:62]
+dta_decomp <- dta_decomp %>% 
+  filter(classif %in% testISIC & group == 69)
+dta_total <- dta_decomp %>%
+  ungroup() %>%
+  group_by(year) %>%
+  summarise(across(.cols = where(is.numeric), .fns = sum, na.rm = TRUE), .groups = 'drop') %>%
+  mutate(classif = 'Total')
+dta_decomp <- rbind(dta_decomp, dta_total)
+
 # Decomposition
 {
   #
