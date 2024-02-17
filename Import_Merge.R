@@ -270,6 +270,29 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
     mutate(realcostEnergy = round((costEnergy / (PPI/100)), digits = 2))
 }
 
+# Calculate Sum of Manufacturing
+{
+  dta_total <- emissions %>% # Take 'Air Emission Accounts' as Base data
+    left_join((emissionsEqui) %>% distinct(), # Note: 'emissionsEqui' contains duplicates
+              join_by(classif == classif, year == year)) %>% # Join 'GHG in CO2-equivalents Data
+    left_join(output, join_by(classif == classif, year == year)) %>%
+    left_join((cost_ener_trans %>% select(!PPI)), join_by(classif == classif, year == year)) %>%
+    left_join(ppi_mapp, join_by(classif == Class_output)) %>%
+    
+    filter(!is.na(ZEW_Code)) %>%
+    group_by(year) %>%
+    summarise(across(.cols = where(is.numeric), .fns = sum, na.rm = TRUE), .groups = 'drop') %>%
+    mutate(classif = 'Total Manufacturing',
+           ISIC_Name = 'Total Manufacturing',
+           Class_PPI = 'C Manufacturing') %>%
+    
+    left_join(ppi_trans %>% 
+                filter(classif == 'C Manufacturing') %>%
+                select(!classif), 
+              join_by(year == year))
+
+}
+
 # Merge Emissions, Output and PPI data
 {
   dta_decomp <- emissions %>% # Take 'Air Emission Accounts' as Base data
@@ -280,6 +303,7 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
     left_join(ppi_trans, join_by(Class_PPI == classif, year == year)) %>% # Join PPI values by previously inserted Mapping
     left_join((cost_ener_trans %>% select(!PPI)), 
               join_by(classif == classif, year == year)) %>%
+    full_join(dta_total) %>%
     filter(!(year %in% c(2020, 2021,2022))) %>% # Disselect the entries of the years 2020-2022
     distinct()
   #dta_decomp <- na.omit(dta_decomp) # Drop all NA
