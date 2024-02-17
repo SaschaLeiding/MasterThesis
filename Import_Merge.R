@@ -43,7 +43,7 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
   
   #output <- read_xlsx("./Data/DK_OutputNominal_117grouping.xlsx", range = "C3:W122")
   ppi <- read_xlsx("./Data/DK_PPIcommodities_Manufacturing.xlsx", range = "B3:KB46")
-  ppi_mapp117 <- read_xlsx("./Data/Mapping_PPI_117grouping.xlsx", range = "B3:H122")
+  ppi_mapp117 <- read_xlsx("./Data/Mapping_PPI_117grouping.xlsx", range = "B3:I122")
   ppi_mapp69 <- read_xlsx("./Data/Mapping_PPI_69grouping.xlsx", range = "B2:C73")
   
   ember <- read.csv("./Data/EMBER_ElectricityData.csv")
@@ -285,7 +285,8 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
     mutate(classif = 'Total Manufacturing',
            ISIC_Name = 'Total Manufacturing',
            Class_PPI = 'C Manufacturing',
-           ZEW_Name = 'Total Manufacturing') %>%
+           ZEW_Name = 'Total Manufacturing',
+           Shapiro_Name = 'Total Manufacturing') %>%
     
     left_join(ppi_trans %>% 
                 filter(classif == 'C Manufacturing') %>%
@@ -349,8 +350,30 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
                 filter(!is.na(ZEW_Code) & !(ZEW_Code %in% ZEWcode_sum)))
 }
 
+# Create Shapiro&Walker(ISIC)-classification data
+{
+  dta_ISICsum <- dta_decomp %>%
+    filter(!is.na(Shapiro_Code)) %>%
+    group_by(year, Shapiro_Code) %>%
+    filter(n()>1) %>%
+    summarise(across(where(is.numeric), sum, na.rm = TRUE), .groups = 'drop') %>%
+    ungroup() %>%
+    mutate(ISIC_Code = NA,
+           ZEW_Code = NA,
+           !!varname_ghgintensity := !!sym(ghg)/(voutput/1000),
+           realouput_intensity = (realoutput * (!!sym(varname_ghgintensity)))) %>%
+    left_join(unique(ppi_mapp %>% select(Shapiro_Code, Shapiro_Name)), join_by(Shapiro_Code == Shapiro_Code))
+  
+  ISICcode_sum <- unique(dta_ISICsum$Shapiro_Code)
+  
+  dta_ISIC <- dta_ISICsum %>%
+    full_join(dta_decomp %>%
+                filter(!is.na(Shapiro_Code) & !(Shapiro_Code %in% ISICcode_sum)))
+}
+
 # Save the Data
 {
   saveRDS(dta_decomp, file = "./Data/dta_full.rds")
-  saveRDS(dta_ZEW, file = "./Data/dta_analysis.rds")
+  saveRDS(dta_ZEW, file = "./Data/dta_ZEW.rds")
+  saveRDS(dta_ISIC, file = "./Data/dta_ISIC.rds")
 }

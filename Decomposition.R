@@ -20,7 +20,7 @@ Print Plots as PDF in 'Landscape' 8.00 x 6.00
 
 # Load Data
 {
-  dta_decomp <- readRDS("./Data/dta_analysis.rds")
+  dta_decomp <- readRDS("./Data/dta_ZEW.rds")
 }
 
 # Define variables for flexibility in Code
@@ -30,7 +30,7 @@ base_year <- 2005 # Base year for the normalizing the 3 effects
 # Decomposition
 {
   dta_decomp <- dta_decomp %>% 
-    group_by(classif) %>% 
+    group_by(ZEW_Name) %>% 
     arrange(year, .by_group = TRUE) %>%
     mutate(scale = (realoutput / realoutput[year == base_year]) * 100, 
            scale_comp_techn = (!!sym(ghg) / (!!sym(ghg))[year == base_year]) * 100,
@@ -46,7 +46,7 @@ base_year <- 2005 # Base year for the normalizing the 3 effects
 # Trends in Manufacturing Pollution Emissions
 {
   dta_emissions_plot <- dta_decomp %>% 
-    filter(classif == 'Total Manufacturing') %>%
+    filter(ZEW_Name == 'Total Manufacturing') %>%
     select(year, realoutput, GHGinclBiomass, CO2inclBiomass, SO2, NOx, PM10, PM2.5, NMVOC) %>%
     pivot_longer(cols = realoutput:NMVOC, values_to = 'Value', names_to = 'Category') %>%
     group_by(Category) %>%
@@ -70,7 +70,7 @@ base_year <- 2005 # Base year for the normalizing the 3 effects
 
 # Line Plot of the decomposition - standard depiction
 {
-  dta_decomp_plot_stand <- dta_decomp %>% filter(classif == 'Total Manufacturing') %>%
+  dta_decomp_plot_stand <- dta_decomp %>% filter(ZEW_Name == 'Total Manufacturing') %>%
     select(year, scale, scale_comp_techn, scale_comp) %>%
     pivot_longer(cols = scale:scale_comp, names_to = 'Effect', values_to = 'Values')
   
@@ -90,7 +90,7 @@ base_year <- 2005 # Base year for the normalizing the 3 effects
 
 # Line Plot of the Decomposition - individual effects
 {
-  dta_decomp_plot <- dta_decomp %>% filter(classif == 'Total Manufacturing') %>%
+  dta_decomp_plot <- dta_decomp %>% filter(ZEW_Name == 'Total Manufacturing') %>%
     select(year, scale, techn, comp, normalized_ghg) %>%
     pivot_longer(cols = scale:normalized_ghg, names_to = 'Effect', values_to = 'Values')
   
