@@ -43,7 +43,7 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
   
   #output <- read_xlsx("./Data/DK_OutputNominal_117grouping.xlsx", range = "C3:W122")
   ppi <- read_xlsx("./Data/DK_PPIcommodities_Manufacturing.xlsx", range = "B3:KB46")
-  ppi_mapp117 <- read_xlsx("./Data/Mapping_PPI_117grouping.xlsx", range = "B3:G122")
+  ppi_mapp117 <- read_xlsx("./Data/Mapping_PPI_117grouping.xlsx", range = "B3:H122")
   ppi_mapp69 <- read_xlsx("./Data/Mapping_PPI_69grouping.xlsx", range = "B2:C73")
   
   ember <- read.csv("./Data/EMBER_ElectricityData.csv")
@@ -270,7 +270,7 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
     mutate(realcostEnergy = round((costEnergy / (PPI/100)), digits = 2))
 }
 
-# Calculate Sum of Manufacturing
+# Calculate Total of Manufacturing
 {
   dta_total <- emissions %>% # Take 'Air Emission Accounts' as Base data
     left_join((emissionsEqui) %>% distinct(), # Note: 'emissionsEqui' contains duplicates
@@ -284,7 +284,8 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
     summarise(across(.cols = where(is.numeric), .fns = sum, na.rm = TRUE), .groups = 'drop') %>%
     mutate(classif = 'Total Manufacturing',
            ISIC_Name = 'Total Manufacturing',
-           Class_PPI = 'C Manufacturing') %>%
+           Class_PPI = 'C Manufacturing',
+           ZEW_Name = 'Total Manufacturing') %>%
     
     left_join(ppi_trans %>% 
                 filter(classif == 'C Manufacturing') %>%
@@ -327,7 +328,29 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
   attr(dta_decomp$realouput_intensity, 'label') <- '1,000 DKK per ton'
 }
 
+# Create ZEW-classification data
+{
+  dta_ZEWsum <- dta_decomp %>%
+    filter(!is.na(ZEW_Code)) %>%
+    group_by(year, ZEW_Code) %>%
+    filter(n()>1) %>%
+    summarise(across(where(is.numeric), sum, na.rm = TRUE), .groups = 'drop') %>%
+    ungroup() %>%
+    mutate(ISIC_Code = NA,
+           Shapiro_Code = NA,
+           !!varname_ghgintensity := !!sym(ghg)/(voutput/1000),
+           realouput_intensity = (realoutput * (!!sym(varname_ghgintensity)))) %>%
+    left_join(unique(ppi_mapp %>% select(ZEW_Code, ZEW_Name)), join_by(ZEW_Code == ZEW_Code))
+  
+  ZEWcode_sum <- unique(dta_ZEWsum$ZEW_Code)
+  
+  dta_ZEW <- dta_ZEWsum %>%
+    full_join(dta_decomp %>%
+                filter(!is.na(ZEW_Code) & !(ZEW_Code %in% ZEWcode_sum)))
+}
+
 # Save the Data
 {
-  saveRDS(dta_decomp, file = "./Data/dta_analysis.rds")
+  saveRDS(dta_decomp, file = "./Data/dta_full.rds")
+  saveRDS(dta_ZEW, file = "./Data/dta_analysis.rds")
 }

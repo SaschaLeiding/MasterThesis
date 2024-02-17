@@ -27,40 +27,26 @@ Print Plots as PDF in 'Landscape' 8.00 x 6.00
 ghg <- 'GHGinclBiomass' # Greenhouse gas for the analysis to allow flexibility in choice
 base_year <- 2005 # Base year for the normalizing the 3 effects
 
-testISIC <- unique(dta_decomp$classif)[11:62]
-dta_decomp <- dta_decomp %>% 
-  filter(classif %in% testISIC & group == 69)
-dta_total <- dta_decomp %>%
-  ungroup() %>%
-  group_by(year) %>%
-  summarise(across(.cols = where(is.numeric), .fns = sum, na.rm = TRUE), .groups = 'drop') %>%
-  mutate(classif = 'Total')
-dta_decomp <- rbind(dta_decomp, dta_total)
-
 # Decomposition
 {
-  #
-  {
-    dta_decomp <- dta_decomp %>% 
-      group_by(classif) %>% 
-      arrange(year, .by_group = TRUE) %>%
-      mutate(scale = (realoutput / realoutput[year == base_year]) * 100, 
-             scale_comp_techn = (!!sym(ghg) / (!!sym(ghg))[year == base_year]) * 100,
-             scale_comp = (realouput_intensity / realouput_intensity[year == base_year]) * 100,
-             techn = scale_comp_techn - scale_comp + 100,
-             comp = scale_comp - scale + 100,
-             normalized_ghg = (!!sym(ghg) / (!!sym(ghg))[year == base_year]) * 100) %>%
-    ungroup()
+  dta_decomp <- dta_decomp %>% 
+    group_by(classif) %>% 
+    arrange(year, .by_group = TRUE) %>%
+    mutate(scale = (realoutput / realoutput[year == base_year]) * 100, 
+           scale_comp_techn = (!!sym(ghg) / (!!sym(ghg))[year == base_year]) * 100,
+           scale_comp = (realouput_intensity / realouput_intensity[year == base_year]) * 100,
+           techn = scale_comp_techn - scale_comp + 100,
+           comp = scale_comp - scale + 100,
+           normalized_ghg = (!!sym(ghg) / (!!sym(ghg))[year == base_year]) * 100) %>%
+  ungroup()
     
-    attr(dta_decomp[[ghg]], 'label') <- "tons Emissions per 1,000 DKK"
-    
-  }
+  attr(dta_decomp[[ghg]], 'label') <- "tons Emissions per 1,000 DKK"
 }
 
 # Trends in Manufacturing Pollution Emissions
 {
   dta_emissions_plot <- dta_decomp %>% 
-    filter(classif == 'Total') %>%
+    filter(classif == 'Total Manufacturing') %>%
     select(year, realoutput, GHGinclBiomass, CO2inclBiomass, SO2, NOx, PM10, PM2.5, NMVOC) %>%
     pivot_longer(cols = realoutput:NMVOC, values_to = 'Value', names_to = 'Category') %>%
     group_by(Category) %>%
@@ -84,7 +70,7 @@ dta_decomp <- rbind(dta_decomp, dta_total)
 
 # Line Plot of the decomposition - standard depiction
 {
-  dta_decomp_plot_stand <- dta_decomp %>% filter(classif == 'Total') %>%
+  dta_decomp_plot_stand <- dta_decomp %>% filter(classif == 'Total Manufacturing') %>%
     select(year, scale, scale_comp_techn, scale_comp) %>%
     pivot_longer(cols = scale:scale_comp, names_to = 'Effect', values_to = 'Values')
   
@@ -104,7 +90,7 @@ dta_decomp <- rbind(dta_decomp, dta_total)
 
 # Line Plot of the Decomposition - individual effects
 {
-  dta_decomp_plot <- dta_decomp %>% filter(classif == 'Total') %>%
+  dta_decomp_plot <- dta_decomp %>% filter(classif == 'Total Manufacturing') %>%
     select(year, scale, techn, comp, normalized_ghg) %>%
     pivot_longer(cols = scale:normalized_ghg, names_to = 'Effect', values_to = 'Values')
   

@@ -38,7 +38,8 @@ base_year <- 2005 # Base year for parameter
   Note: Greenhouse gases are in 1,000 tonnes, whereas output and costs data is in million DKK
   "
   dta_parameter <- dta_decomp %>%
-    filter(!(classif %in% excl_117) & group == group_ind) %>%
+    #filter(!(classif %in% excl_117) & group == group_ind) %>%
+    filter(!is.na(ZEW_Code)) %>%
     group_by(year) %>%
     mutate(tonsPollCost = (!!sym(ghg)*1000)/!!sym(costs), # Calculating tons pollution per dollar costs
            meantonsPollCost = sum(tonsPollCost, na.rm=TRUE)/group_ind,
@@ -54,19 +55,21 @@ base_year <- 2005 # Base year for parameter
   
   
   # test ZEW Method with Point-slope Elasticity
-  dta_parameter_t <- dta_parameter %>%
+  dta_parameter_ZEW <- dta_parameter %>%
     group_by(classif) %>%
     arrange(year, .by_group = TRUE) %>%
-    # quantity (realoutput) and energy as p
-    mutate(energyshare = costEnergy/voutput,
+    mutate(energyshare = realcostEnergy/realoutput,
            chngOutputEnergyZEW = (lead(energyshare) - energyshare)/(lead(realoutput) - realoutput),
            elasticityOutputEnergyZEW = (1/chngOutputEnergyZEW) * (energyshare/realoutput),
            
-           chngEmissionEnergyZEW = (lead(energyshare) - energyshare)/(lead(!!sym(ghg)) - !!sym(ghg)),
-           elasticityEmissionEnergyZEW = (1/chngEmissionEnergyZEW) * (energyshare/!!sym(ghg)),
+           chngEmissionEnergyZEW = (lead(realcostEnergy) - realcostEnergy)/(lead(!!sym(ghg)) - !!sym(ghg)),
+           elasticityEmissionEnergyZEW = (1/chngEmissionEnergyZEW) * (realcostEnergy/!!sym(ghg)),
            
            pollutionelasticityZEW = elasticityOutputEnergyZEW/elasticityEmissionEnergyZEW) %>%
-    select(classif, year, pollutionelasticity, pollutionelasticityZEW)
+    select(classif, year,
+           elasticityOutputEnergyZEW, elasticityEmissionEnergyZEW,
+           pollutionelasticity, pollutionelasticityZEW) %>%
+    filter(year == 2000)
 }
 
 # Exporting Parameters for base year to LATEX
@@ -76,8 +79,8 @@ base_year <- 2005 # Base year for parameter
                                   mutate(classif = substr(classif, 8, 1000000L)) %>%
                                   filter(year == base_year) %>%
                                   select(classif, tonsPollCost, pollutionelasticity, inputshare, elasticitysubstitution) %>%
-                                  arrange(desc(tonsPollCost)) %>% # Arrange table in descending order by tons Pollution per m DKK costs
-                                  slice(1:15)),
+                                  arrange(desc(tonsPollCost)) ),#%>% # Arrange table in descending order by tons Pollution per m DKK costs
+                                  #slice(1:15)),
                            digits = c(2,2,2,4,2,2)) # Set number of decimals per column
   
   # Change Column Names in LATEX table
