@@ -20,7 +20,7 @@ Print Plots as PDF in 'Landscape' 8.00 x 6.00
 
 # Load Data
 {
-  dta_decomp <- readRDS("./Data/dta_ZEW.rds")
+  dta_decomp <- readRDS("./Data/dta_analysis.rds")
 }
 
 # Define variables for flexibility in Code
@@ -29,7 +29,8 @@ base_year <- 2005 # Base year for the normalizing the 3 effects
 
 # Decomposition
 {
-  dta_decomp <- dta_decomp %>% 
+  dta_decomp <- dta_decomp %>%
+    filter(classsystem == 'NACE') %>% # NACE=ZEW, ISIC=Shapiro
     group_by(ZEW_Name) %>% 
     arrange(year, .by_group = TRUE) %>%
     mutate(scale = (realoutput / realoutput[year == base_year]) * 100, 

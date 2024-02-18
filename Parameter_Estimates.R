@@ -20,7 +20,7 @@ Attention: Variable 'ghg' must be the same in all Scripts
 
 # Load Data
 {
-  dta_decomp <- readRDS("./Data/dta_ZEW.rds")
+  dta_analysis <- readRDS("./Data/dta_analysis.rds")
 }
 
 # Define variables for flexibility in Code
@@ -37,9 +37,8 @@ base_year <- 2005 # Base year for parameter
   "
   Note: Greenhouse gases are in 1,000 tonnes, whereas output and costs data is in million DKK
   "
-  dta_parameter <- dta_decomp %>%
-    #filter(!(classif %in% excl_117) & group == group_ind) %>%
-    #filter(!is.na(ZEW_Code)) %>%
+  dta_parameter <- dta_analysis %>%
+    filter(classsystem == 'NACE') %>%
     filter(ZEW_Name != 'Total Manufacturing') %>%
     group_by(year) %>%
     mutate(tonsPollCost = (!!sym(ghg)*1000)/!!sym(costs), # Calculating tons pollution per dollar costs
@@ -51,7 +50,7 @@ base_year <- 2005 # Base year for parameter
   
   # Test whether pollution Elasticity has been correctly calculated
   mean((dta_parameter %>% filter(year == base_year))$pollutionelasticity)
-  
+  # Add Label to column 'tonspollcost'
   attr(dta_parameter$tonsPollCost, 'label') <- 'Tons pollution per 1,000,000 DKK'
   
   

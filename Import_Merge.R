@@ -337,9 +337,7 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
     filter(n()>1) %>%
     summarise(across(where(is.numeric), sum, na.rm = TRUE), .groups = 'drop') %>%
     ungroup() %>%
-    mutate(ISIC_Code = NA,
-           Shapiro_Code = NA,
-           !!varname_ghgintensity := !!sym(ghg)/(voutput/1000),
+    mutate(!!varname_ghgintensity := !!sym(ghg)/(voutput/1000),
            realouput_intensity = (realoutput * (!!sym(varname_ghgintensity)))) %>%
     left_join(unique(ppi_mapp %>% select(ZEW_Code, ZEW_Name)), join_by(ZEW_Code == ZEW_Code))
   
@@ -347,7 +345,11 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
   
   dta_ZEW <- dta_ZEWsum %>%
     full_join(dta_decomp %>%
-                filter(!is.na(ZEW_Code) & !(ZEW_Code %in% ZEWcode_sum)))
+                filter(!is.na(ZEW_Code) & !(ZEW_Code %in% ZEWcode_sum))) %>%
+    mutate(Shapiro_Code = NA,
+           Shapiro_Name = NA,
+           classsystem = 'NACE') %>%
+    select(!ISIC_Code)
 }
 
 # Create Shapiro&Walker(ISIC)-classification data
@@ -358,9 +360,7 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
     filter(n()>1) %>%
     summarise(across(where(is.numeric), sum, na.rm = TRUE), .groups = 'drop') %>%
     ungroup() %>%
-    mutate(ISIC_Code = NA,
-           ZEW_Code = NA,
-           !!varname_ghgintensity := !!sym(ghg)/(voutput/1000),
+    mutate(!!varname_ghgintensity := !!sym(ghg)/(voutput/1000),
            realouput_intensity = (realoutput * (!!sym(varname_ghgintensity)))) %>%
     left_join(unique(ppi_mapp %>% select(Shapiro_Code, Shapiro_Name)), join_by(Shapiro_Code == Shapiro_Code))
   
@@ -368,7 +368,16 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
   
   dta_ISIC <- dta_ISICsum %>%
     full_join(dta_decomp %>%
-                filter(!is.na(Shapiro_Code) & !(Shapiro_Code %in% ISICcode_sum)))
+                filter(!is.na(Shapiro_Code) & !(Shapiro_Code %in% ISICcode_sum))) %>%
+    mutate(ZEW_Code = NA,
+           ZEW_Name = NA,
+           classsystem = 'ISIC') %>%
+    select(!ISIC_Code)
+}
+
+# Combine NACE and ISIC data
+{
+  dta_analysis <- dta_ZEW %>% full_join(dta_ISIC)
 }
 
 # Save the Data
@@ -376,4 +385,5 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
   saveRDS(dta_decomp, file = "./Data/dta_full.rds")
   saveRDS(dta_ZEW, file = "./Data/dta_ZEW.rds")
   saveRDS(dta_ISIC, file = "./Data/dta_ISIC.rds")
+  saveRDS(dta_analysis, file = "./Data/dta_analysis.rds")
 }
