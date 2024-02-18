@@ -14,8 +14,10 @@ Print Plots as PDF in 'Landscape' 8.00 x 6.00
 # Install & Load Packages
 {
   #install.packages("tidyverse")
+  #install.packages("xtable")
   
   library(tidyverse)
+  library(xtable)
 }
 
 # Load Data
@@ -65,7 +67,7 @@ base_year <- 2005 # Base year for the normalizing the 3 effects
                         labels = c("CO² incl. Biomass", "GHG incl. Biomass",
                                "NVMOC", "Nitrogen Oxides", "Particular Matter < 10",
                                "Particular Matter < 2.5", "Real Output", "Sulphur Dioxide")) +
-    theme(legend.position = c(.15, .75))
+    theme(legend.position = c(.15, .22))
   lplot_emissions
 }
 
@@ -96,13 +98,65 @@ base_year <- 2005 # Base year for the normalizing the 3 effects
     pivot_longer(cols = scale:normalized_ghg, names_to = 'Effect', values_to = 'Values')
   
   lplot_decom <- ggplot(data = dta_decomp_plot, aes(x = year, y = Values, color = Effect, group = Effect)) +
-    geom_line(size = 1) +
+    geom_line() +
     labs(#title = "Development of various Greenhouse Gas Emissions",
       x = "Year",
       y = paste0("Base ", base_year, " = 100"),
       color = NULL) +
     scale_colour_manual(values = c("blue", "black", "green", "red"),
                         labels = c("Composition", "GHG", "Scale", "Technique")) +
-    theme(legend.position = c(.083, .9))
+    theme(legend.position = c(.15, .22))
   lplot_decom
+}
+
+# Stylized Facts Table
+{
+  dta_style <- dta_decomp %>%
+    filter(classsystem == "ISIC" & year == 2000) %>%
+    select(Shapiro_Name, !!sym(ghg), voutput, realoutput, realexpend, realcostEnergy) %>%
+    mutate_if(is.numeric, ~round(.x, digits = 0)) %>%
+    rename("Emissions" = "GHGinclBiomass",
+           "Output" = "voutput",
+           "Real Output" = "realoutput",
+           "Real Costs" = "realexpend",
+           "Real Energy Costs" = "realcostEnergy") %>%
+    
+    left_join(dta_decomp %>%
+                filter(classsystem == "ISIC" & (year %in% c(2000,2016))) %>%
+                select(Shapiro_Name, year, !!sym(ghg), voutput, realoutput, realexpend, realcostEnergy) %>%
+                mutate_if(is.numeric, ~round(.x, digits = 0)) %>%
+                group_by(Shapiro_Name) %>%
+                mutate_if(is.numeric, ~ round(((lead(.x)-.x) / .x)*100, digits = 1)) %>%
+                rename("Emissions" = "GHGinclBiomass",
+                       "Output" = "voutput",
+                       "Real Output" = "realoutput",
+                       "Real Costs" = "realexpend",
+                       "Real Energy Costs" = "realcostEnergy") %>%
+                rename_if(is.numeric, ~paste0("Change in ", .x)) %>%
+                filter(year == 2000) %>% select(!year),
+              join_by(Shapiro_Name == Shapiro_Name)) %>%
+    select(Shapiro_Name, Emissions, 'Change in Emissions',
+           Output, 'Change in Output', 'Real Output', 'Change in Real Output',
+           "Real Costs", 'Change in Real Costs',
+           'Real Energy Costs', 'Change in Real Energy Costs')
+  
+  # Print table to LATEX
+  # Function to apply italic formatting to specific columns
+  italicize_columns <- function(df, cols) {
+    for (col in cols) {
+      df[[col]] <- sprintf("\\textit{%s}", df[[col]])
+    }
+    return(df)
+  }
+  
+  # Apply the italic formatting to specified columns by index
+  cols_to_italicize <- c(3, 5, 7, 9 , 11) # Specify columns to italicize by their index
+  dta_styleitalic <- italicize_columns(dta_style, cols_to_italicize)
+  
+  # Create a Table for LATEX format
+  table_stylized <- xtable(x = dta_styleitalic,
+                           digits = c(0,0,0,1,0,1,0,1,0,1,0,1)) # Set number of decimals per column
+  
+  # Print Parameters table in LATEX format
+  print(table_stylized , include.rownames=FALSE, format.args = list(big.mark = ",", decimal.mark = "."))
 }
