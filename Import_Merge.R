@@ -383,7 +383,5 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
 # Save the Data
 {
   saveRDS(dta_decomp, file = "./Data/dta_full.rds")
-  saveRDS(dta_ZEW, file = "./Data/dta_ZEW.rds")
-  saveRDS(dta_ISIC, file = "./Data/dta_ISIC.rds")
   saveRDS(dta_analysis, file = "./Data/dta_analysis.rds")
 }
