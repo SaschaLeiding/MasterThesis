@@ -15,9 +15,11 @@ Print Plots as PDF in 'Landscape' 8.00 x 6.00
 {
   #install.packages("tidyverse")
   #install.packages("xtable")
+  #install.packages("patchwork")
   
   library(tidyverse)
   library(xtable)
+  library(patchwork)
 }
 
 # Load Data
@@ -28,6 +30,7 @@ Print Plots as PDF in 'Landscape' 8.00 x 6.00
 # Define variables for flexibility in Code
 ghg <- 'GHGinclBiomass' # Greenhouse gas for the analysis to allow flexibility in choice
 base_year <- 2000 # Base year for the normalizing the 3 effects
+end_year <- 2019 # End year to define time sequence under observation
 
 # Decomposition
 {
@@ -112,23 +115,57 @@ base_year <- 2000 # Base year for the normalizing the 3 effects
 # Line Plot of Individual Effects and Emissions by Industry
 {
   dta_technique <- dta_decomp %>% 
-    filter(classsystem == 'ISIC') %>% select(ISIC_Name, year, techn, scale, comp, scale_comp_techn)
+    filter(classsystem == 'ISIC') %>% 
+    select(ISIC_Name, year, techn, scale, comp, scale_comp_techn)
   
+  year_breaks <- seq(from=base_year, to=end_year, by = 2) # X-Axis
+  
+  # Plot Emissions by Industry
   lplot_emiss <- ggplot(data = dta_technique, aes(x=year, y=scale_comp_techn, color=ISIC_Name, group=ISIC_Name)) +
     geom_line()
-  lplot_emiss
   
+  # Plot Technique Effect by Industry
   lplot_tech <- ggplot(data = dta_technique, aes(x=year, y=techn, color=ISIC_Name, group=ISIC_Name)) +
-    geom_line()
-  lplot_tech
+    geom_line() +
+    scale_x_discrete(breaks = year_breaks) +
+    labs(x=NULL, y = "Technique (Base 2000 = 100)")
   
+  # Plot Scale Effect by Industry
   lplot_scale <- ggplot(data = dta_technique, aes(x=year, y=scale, color=ISIC_Name, group=ISIC_Name)) +
-    geom_line()
-  lplot_scale
+    geom_line() +
+    #theme(legend.position="none") +
+    scale_x_discrete(breaks = year_breaks)  +
+    labs(x=NULL, y = "Scale (Base 2000 = 100)")
   
+  # Plot Composition Effect by Industry
   lplot_comp <- ggplot(data = dta_technique, aes(x=year, y=comp, color=ISIC_Name, group=ISIC_Name)) +
-    geom_line()
+    geom_line() +
+    #theme(legend.position="none") +
+    scale_x_discrete(breaks = year_breaks) +
+    labs(x=NULL, y = "Composition (Base 2000 = 100)")
+  
   lplot_comp
+  
+  # Combine Plots
+  {
+    # List plots
+    effects_plots <- list(lplot_tech, lplot_scale, lplot_comp)
+    
+    # Create Labels for Plots
+    label_plots <- map(c("Technique", "Scale", "Composition"), 
+                       ~ ggplot() +
+                         theme_void() +
+                         theme(plot.margin = margin(0, 0, 0)) +
+                         annotate("text", x = 0.5, y = 0.5, label = .x, fontface = "bold", hjust = 0.5))
+    
+    # Combine everything
+    final_plot <- (Reduce('+', label_plots) + plot_layout(ncol = 3)) / 
+      (Reduce('+', effects_plots) + plot_layout(ncol = 3)) +
+      plot_layout(guides = 'collect') +
+      plot_layout(heights = c(1, 8)) &
+      theme(legend.position = "bottom", legend.title=element_blank())
+    }
+  print(final_plot)
 }
 "
 Technique Effect is positive for all industries,
