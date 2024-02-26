@@ -318,6 +318,7 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
     group_by(classif) %>% 
     arrange(year, .by_group = TRUE) %>%
     mutate(!!varname_ghgintensity := !!sym(ghg)/(voutput/1000),
+           output_share = voutput/sum(voutput),
            realoutput = voutput / (PPI/100),
            expend = interConsumption + CompEmployees,
            realexpend = expend / (PPI/100),
