@@ -35,7 +35,7 @@ base_year <- 2005 # Base year for parameter
   Note: Greenhouse gases are in 1,000 tonnes, whereas output and costs data is in million DKK
   "
   dta_parameter <- dta_analysis %>%
-    filter(ZEW_Name != 'Total Manufacturing' | Shapiro_Name != 'Total Manufacturing') %>%
+    filter(NACE_Name != 'Total Manufacturing' | ISIC_Name != 'Total Manufacturing') %>%
     
     # Calculate Parameters with Shapiro and Walker (2018) Estimation method
     group_by(year, classsystem) %>%
@@ -47,16 +47,16 @@ base_year <- 2005 # Base year for parameter
     ungroup() %>%
     
     # Calculate Pollution Elasticity with ZEW (2023) Estimation Method
-    group_by(ZEW_Name, Shapiro_Name) %>%
+    group_by(NACE_Name, ISIC_Name) %>%
     arrange(year, .by_group = TRUE) %>%
     mutate(energyshare = realcostEnergy/realoutput,
            
-           chngOutputEnergyZEW = (lead(energyshare) - energyshare)/(lead(realoutput) - realoutput),
-           elasticityOutputEnergyZEW = (1/chngOutputEnergyZEW) * (energyshare/realoutput),
+           chngOutputEnergyNACE = (lead(energyshare) - energyshare)/(lead(realoutput) - realoutput),
+           elasticityOutputEnergyNACE = (1/chngOutputEnergyNACE) * (energyshare/realoutput),
            
-           chngEmissionEnergyZEW = (lead(realcostEnergy) - realcostEnergy)/(lead(!!sym(ghg)) - !!sym(ghg)),
-           elasticityEmissionEnergyZEW = (1/chngEmissionEnergyZEW) * (realcostEnergy/!!sym(ghg)),
-           pollutionelasticityZEW = elasticityOutputEnergyZEW/elasticityEmissionEnergyZEW) %>%
+           chngEmissionEnergyNACE = (lead(realcostEnergy) - realcostEnergy)/(lead(!!sym(ghg)) - !!sym(ghg)),
+           elasticityEmissionEnergyNACE = (1/chngEmissionEnergyNACE) * (realcostEnergy/!!sym(ghg)),
+           pollutionelasticityNACE = elasticityOutputEnergyNACE/elasticityEmissionEnergyNACE) %>%
   ungroup()
   
   # Test whether pollution Elasticity has been correctly calculated
@@ -72,15 +72,15 @@ base_year <- 2005 # Base year for parameter
   # Create a Table for LATEX format
   table_ALLparameters <- xtable(x = (dta_parameter %>%
                                   filter(year == base_year & classsystem == 'ISIC') %>%
-                                  arrange(Shapiro_Code) %>%
-                                  select(Shapiro_Name, tonsPollCost,
-                                         pollutionelasticity, pollutionelasticityZEW,
+                                  arrange(ISIC_Code) %>%
+                                  select(ISIC_Name, tonsPollCost,
+                                         pollutionelasticity, pollutionelasticityNACE,
                                          inputshare, elasticitysubstitution)),
                            digits = c(2,2,2,4,4,2,2)) # Set number of decimals per column
   
   # Change Column Names in LATEX table
   names(table_ALLparameters) <- c("Industry", "Tons pollution per m DKK costs",
-                             "Pollution elasticity", "Pollution elasticity ZEW",
+                             "Pollution elasticity", "Pollution elasticity NACE",
                              "Input Share", "Elasticity of Substitution")
   
   # Print Parameters table in LATEX format
@@ -92,9 +92,9 @@ base_year <- 2005 # Base year for parameter
   # Create a Table for LATEX format
   table_elasticities <- xtable(x = (dta_parameter %>%
                                        filter(year == base_year & classsystem == 'NACE') %>%
-                                       arrange(ZEW_Code) %>%
-                                       select(ZEW_Name, elasticityOutputEnergyZEW,
-                                              elasticityEmissionEnergyZEW, pollutionelasticityZEW)),
+                                       arrange(NACE_Code) %>%
+                                       select(NACE_Name, elasticityOutputEnergyNACE,
+                                              elasticityEmissionEnergyNACE, pollutionelasticityNACE)),
                                 digits = c(2,2,3,3,3)) # Set number of decimals per column
   
   # Change Column Names in LATEX table

@@ -22,7 +22,7 @@ Print Plots as PDF in 'Landscape' 8.00 x 6.00
 
 # Load Data
 {
-  dta_decomp <- readRDS("./Data/dta_analysis.rds")
+  dta_analysis <- readRDS("./Data/dta_analysis.rds")
 }
 
 # Define variables for flexibility in Code
@@ -31,9 +31,9 @@ base_year <- 2005 # Base year for the normalizing the 3 effects
 
 # Decomposition
 {
-  dta_decomp <- dta_decomp %>%
+  dta_decomp <- dta_analysis %>%
     filter(classsystem == 'NACE') %>% # NACE=ZEW, ISIC=Shapiro
-    group_by(ZEW_Name) %>% 
+    group_by(NACE_Name) %>% 
     arrange(year, .by_group = TRUE) %>%
     mutate(scale = (realoutput / realoutput[year == base_year]) * 100, 
            scale_comp_techn = (!!sym(ghg) / (!!sym(ghg))[year == base_year]) * 100,
@@ -49,7 +49,7 @@ base_year <- 2005 # Base year for the normalizing the 3 effects
 # Trends in Manufacturing Pollution Emissions
 {
   dta_emissions_plot <- dta_decomp %>% 
-    filter(ZEW_Name == 'Total Manufacturing') %>%
+    filter(NACE_Name == 'Total Manufacturing') %>%
     select(year, realoutput, GHGinclBiomass, CO2inclBiomass, SO2, NOx, PM10, PM2.5, NMVOC) %>%
     pivot_longer(cols = realoutput:NMVOC, values_to = 'Value', names_to = 'Category') %>%
     group_by(Category) %>%
@@ -73,7 +73,7 @@ base_year <- 2005 # Base year for the normalizing the 3 effects
 
 # Line Plot of the decomposition - standard depiction
 {
-  dta_decomp_plot_stand <- dta_decomp %>% filter(ZEW_Name == 'Total Manufacturing') %>%
+  dta_decomp_plot_stand <- dta_decomp %>% filter(NACE_Name == 'Total Manufacturing') %>%
     select(year, scale, scale_comp_techn, scale_comp) %>%
     pivot_longer(cols = scale:scale_comp, names_to = 'Effect', values_to = 'Values')
   
@@ -93,7 +93,7 @@ base_year <- 2005 # Base year for the normalizing the 3 effects
 
 # Line Plot of the Decomposition - individual effects
 {
-  dta_decomp_plot <- dta_decomp %>% filter(ZEW_Name == 'Total Manufacturing') %>%
+  dta_decomp_plot <- dta_decomp %>% filter(NACE_Name == 'Total Manufacturing') %>%
     select(year, scale, techn, comp, normalized_ghg) %>%
     pivot_longer(cols = scale:normalized_ghg, names_to = 'Effect', values_to = 'Values')
   
@@ -110,10 +110,11 @@ base_year <- 2005 # Base year for the normalizing the 3 effects
 }
 
 # Stylized Facts Table
+### NEED TO FIX
 {
   dta_style <- dta_decomp %>%
     filter(classsystem == "ISIC" & year == 2000) %>%
-    select(Shapiro_Name, !!sym(ghg), voutput, realoutput, realexpend, realcostEnergy) %>%
+    select(ISIC_Name, !!sym(ghg), output_share, realoutput, realexpend, realcostEnergy) %>%
     mutate_if(is.numeric, ~round(.x, digits = 0)) %>%
     rename("Emissions" = "GHGinclBiomass",
            "Output" = "voutput",
@@ -123,9 +124,9 @@ base_year <- 2005 # Base year for the normalizing the 3 effects
     
     left_join(dta_decomp %>%
                 filter(classsystem == "ISIC" & (year %in% c(2000,2016))) %>%
-                select(Shapiro_Name, year, !!sym(ghg), voutput, realoutput, realexpend, realcostEnergy) %>%
+                select(ISIC_Name, year, !!sym(ghg), voutput, realoutput, realexpend, realcostEnergy) %>%
                 mutate_if(is.numeric, ~round(.x, digits = 0)) %>%
-                group_by(Shapiro_Name) %>%
+                group_by(ISIC_Name) %>%
                 mutate_if(is.numeric, ~ round(((lead(.x)-.x) / .x)*100, digits = 1)) %>%
                 rename("Emissions" = "GHGinclBiomass",
                        "Output" = "voutput",
@@ -134,8 +135,8 @@ base_year <- 2005 # Base year for the normalizing the 3 effects
                        "Real Energy Costs" = "realcostEnergy") %>%
                 rename_if(is.numeric, ~paste0("Change in ", .x)) %>%
                 filter(year == 2000) %>% select(!year),
-              join_by(Shapiro_Name == Shapiro_Name)) %>%
-    select(Shapiro_Name, Emissions, 'Change in Emissions',
+              join_by(ISIC_Name == ISIC_Name)) %>%
+    select(ISIC_Name, Emissions, 'Change in Emissions',
            Output, 'Change in Output', 'Real Output', 'Change in Real Output',
            "Real Costs", 'Change in Real Costs',
            'Real Energy Costs', 'Change in Real Energy Costs')

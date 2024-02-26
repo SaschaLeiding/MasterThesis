@@ -43,7 +43,7 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
   
   #output <- read_xlsx("./Data/DK_OutputNominal_117grouping.xlsx", range = "C3:W122")
   ppi <- read_xlsx("./Data/DK_PPIcommodities_Manufacturing.xlsx", range = "B3:KB46")
-  ppi_mapp117 <- read_xlsx("./Data/Mapping_PPI_117grouping.xlsx", range = "B3:I122")
+  ppi_mapp117 <- read_xlsx("./Data/Mapping_PPI_117grouping.xlsx", range = "B3:G122")
   ppi_mapp69 <- read_xlsx("./Data/Mapping_PPI_69grouping.xlsx", range = "B2:C73")
   
   ember <- read.csv("./Data/EMBER_ElectricityData.csv")
@@ -279,14 +279,13 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
     left_join((cost_ener_trans %>% select(!PPI)), join_by(classif == classif, year == year)) %>%
     left_join(ppi_mapp, join_by(classif == Class_output)) %>%
     
-    filter(!is.na(ZEW_Code)) %>%
+    filter(!is.na(NACE_Code)) %>%
     group_by(year) %>%
     summarise(across(.cols = where(is.numeric), .fns = sum, na.rm = TRUE), .groups = 'drop') %>%
     mutate(classif = 'Total Manufacturing',
            ISIC_Name = 'Total Manufacturing',
            Class_PPI = 'C Manufacturing',
-           ZEW_Name = 'Total Manufacturing',
-           Shapiro_Name = 'Total Manufacturing') %>%
+           NACE_Name = 'Total Manufacturing') %>%
     
     left_join(ppi_trans %>% 
                 filter(classif == 'C Manufacturing') %>%
@@ -330,55 +329,53 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
   attr(dta_decomp$realouput_intensity, 'label') <- '1,000 DKK per ton'
 }
 
-# Create ZEW-classification data
+# Create NACE-classification data
 {
-  dta_ZEWsum <- dta_decomp %>%
-    filter(!is.na(ZEW_Code)) %>%
-    group_by(year, ZEW_Code) %>%
+  dta_NACEsum <- dta_decomp %>%
+    filter(!is.na(NACE_Code)) %>%
+    group_by(year, NACE_Code) %>%
     filter(n()>1) %>%
     summarise(across(where(is.numeric), sum, na.rm = TRUE), .groups = 'drop') %>%
     ungroup() %>%
     mutate(!!varname_ghgintensity := !!sym(ghg)/(voutput/1000),
            realouput_intensity = (realoutput * (!!sym(varname_ghgintensity)))) %>%
-    left_join(unique(ppi_mapp %>% select(ZEW_Code, ZEW_Name)), join_by(ZEW_Code == ZEW_Code))
+    left_join(unique(ppi_mapp %>% select(NACE_Code, NACE_Name)), join_by(NACE_Code == NACE_Code))
   
-  ZEWcode_sum <- unique(dta_ZEWsum$ZEW_Code)
+  NACEcode_sum <- unique(dta_NACEsum$NACE_Code)
   
-  dta_ZEW <- dta_ZEWsum %>%
+  dta_NACE <- dta_NACEsum %>%
     full_join(dta_decomp %>%
-                filter(!is.na(ZEW_Code) & !(ZEW_Code %in% ZEWcode_sum))) %>%
-    mutate(Shapiro_Code = NA,
-           Shapiro_Name = NA,
-           classsystem = 'NACE') %>%
-    select(!ISIC_Code)
+                filter(!is.na(NACE_Code) & !(NACE_Code %in% NACEcode_sum))) %>%
+    mutate(ISIC_Code = NA,
+           ISIC_Name = NA,
+           classsystem = 'NACE')
 }
 
 # Create Shapiro&Walker(ISIC)-classification data
 {
   dta_ISICsum <- dta_decomp %>%
-    filter(!is.na(Shapiro_Code)) %>%
-    group_by(year, Shapiro_Code) %>%
+    filter(!is.na(ISIC_Code)) %>%
+    group_by(year, ISIC_Code) %>%
     filter(n()>1) %>%
     summarise(across(where(is.numeric), sum, na.rm = TRUE), .groups = 'drop') %>%
     ungroup() %>%
     mutate(!!varname_ghgintensity := !!sym(ghg)/(voutput/1000),
            realouput_intensity = (realoutput * (!!sym(varname_ghgintensity)))) %>%
-    left_join(unique(ppi_mapp %>% select(Shapiro_Code, Shapiro_Name)), join_by(Shapiro_Code == Shapiro_Code))
+    left_join(unique(ppi_mapp %>% select(ISIC_Code, ISIC_Name)), join_by(ISIC_Code == ISIC_Code))
   
-  ISICcode_sum <- unique(dta_ISICsum$Shapiro_Code)
+  ISICcode_sum <- unique(dta_ISICsum$ISIC_Code)
   
   dta_ISIC <- dta_ISICsum %>%
     full_join(dta_decomp %>%
-                filter(!is.na(Shapiro_Code) & !(Shapiro_Code %in% ISICcode_sum))) %>%
-    mutate(ZEW_Code = NA,
-           ZEW_Name = NA,
-           classsystem = 'ISIC') %>%
-    select(!ISIC_Code)
+                filter(!is.na(ISIC_Code) & !(ISIC_Code %in% ISICcode_sum))) %>%
+    mutate(NACE_Code = NA,
+           NACE_Name = NA,
+           classsystem = 'ISIC')
 }
 
 # Combine NACE and ISIC data
 {
-  dta_analysis <- dta_ZEW %>% full_join(dta_ISIC)
+  dta_analysis <- dta_NACE %>% full_join(dta_ISIC)
 }
 
 # Save the Data
