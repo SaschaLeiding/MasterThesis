@@ -27,13 +27,13 @@ Print Plots as PDF in 'Landscape' 8.00 x 6.00
 
 # Define variables for flexibility in Code
 ghg <- 'GHGinclBiomass' # Greenhouse gas for the analysis to allow flexibility in choice
-base_year <- 2005 # Base year for the normalizing the 3 effects
+base_year <- 2000 # Base year for the normalizing the 3 effects
 
 # Decomposition
 {
   dta_decomp <- dta_analysis %>%
-    filter(classsystem == 'NACE') %>% # NACE=ZEW, ISIC=Shapiro
-    group_by(NACE_Name) %>% 
+    filter(classsystem == 'ISIC') %>% # NACE=ZEW, ISIC=Shapiro
+    group_by(ISIC_Name) %>% 
     arrange(year, .by_group = TRUE) %>%
     mutate(scale = (realoutput / realoutput[year == base_year]) * 100, 
            scale_comp_techn = (!!sym(ghg) / (!!sym(ghg))[year == base_year]) * 100,
@@ -49,7 +49,7 @@ base_year <- 2005 # Base year for the normalizing the 3 effects
 # Trends in Manufacturing Pollution Emissions
 {
   dta_emissions_plot <- dta_decomp %>% 
-    filter(NACE_Name == 'Total Manufacturing') %>%
+    filter(ISIC_Name == 'Total Manufacturing') %>%
     select(year, realoutput, GHGinclBiomass, CO2inclBiomass, SO2, NOx, PM10, PM2.5, NMVOC) %>%
     pivot_longer(cols = realoutput:NMVOC, values_to = 'Value', names_to = 'Category') %>%
     group_by(Category) %>%
@@ -73,7 +73,7 @@ base_year <- 2005 # Base year for the normalizing the 3 effects
 
 # Line Plot of the decomposition - standard depiction
 {
-  dta_decomp_plot_stand <- dta_decomp %>% filter(NACE_Name == 'Total Manufacturing') %>%
+  dta_decomp_plot_stand <- dta_decomp %>% filter(ISIC_Name == 'Total Manufacturing') %>%
     select(year, scale, scale_comp_techn, scale_comp) %>%
     pivot_longer(cols = scale:scale_comp, names_to = 'Effect', values_to = 'Values')
   
@@ -93,7 +93,7 @@ base_year <- 2005 # Base year for the normalizing the 3 effects
 
 # Line Plot of the Decomposition - individual effects
 {
-  dta_decomp_plot <- dta_decomp %>% filter(NACE_Name == 'Total Manufacturing') %>%
+  dta_decomp_plot <- dta_decomp %>% filter(ISIC_Name == 'Total Manufacturing') %>%
     select(year, scale, techn, comp, normalized_ghg) %>%
     pivot_longer(cols = scale:normalized_ghg, names_to = 'Effect', values_to = 'Values')
   
@@ -109,6 +109,36 @@ base_year <- 2005 # Base year for the normalizing the 3 effects
   lplot_decom
 }
 
+# Line Plot of Individual Effects and Emissions by Industry
+{
+  dta_technique <- dta_decomp %>% 
+    filter(classsystem == 'ISIC') %>% select(ISIC_Name, year, techn, scale, comp, scale_comp_techn)
+  
+  lplot_emiss <- ggplot(data = dta_technique, aes(x=year, y=scale_comp_techn, color=ISIC_Name, group=ISIC_Name)) +
+    geom_line()
+  lplot_emiss
+  
+  lplot_tech <- ggplot(data = dta_technique, aes(x=year, y=techn, color=ISIC_Name, group=ISIC_Name)) +
+    geom_line()
+  lplot_tech
+  
+  lplot_scale <- ggplot(data = dta_technique, aes(x=year, y=scale, color=ISIC_Name, group=ISIC_Name)) +
+    geom_line()
+  lplot_scale
+  
+  lplot_comp <- ggplot(data = dta_technique, aes(x=year, y=comp, color=ISIC_Name, group=ISIC_Name)) +
+    geom_line()
+  lplot_comp
+}
+"
+Technique Effect is positive for all industries,
+Scale Effect differs substantially by industry, see change in Output(real output)
+-> Chemicals, Food and Machinery are large drivers of Scale
+Composition for all negative
+
+=> Chemicals, Machinery are large drivers for all effects (adjusted for size)
+"
+
 # Stylized Facts Table
 ### NEED TO FIX
 {
@@ -117,19 +147,19 @@ base_year <- 2005 # Base year for the normalizing the 3 effects
     select(ISIC_Name, !!sym(ghg), output_share, realoutput, realexpend, realcostEnergy) %>%
     mutate_if(is.numeric, ~round(.x, digits = 0)) %>%
     rename("Emissions" = "GHGinclBiomass",
-           "Output" = "voutput",
+           "Output Share" = "output_share",
            "Real Output" = "realoutput",
            "Real Costs" = "realexpend",
            "Real Energy Costs" = "realcostEnergy") %>%
     
     left_join(dta_decomp %>%
                 filter(classsystem == "ISIC" & (year %in% c(2000,2016))) %>%
-                select(ISIC_Name, year, !!sym(ghg), voutput, realoutput, realexpend, realcostEnergy) %>%
+                select(ISIC_Name, year, !!sym(ghg), output_share, realoutput, realexpend, realcostEnergy) %>%
                 mutate_if(is.numeric, ~round(.x, digits = 0)) %>%
                 group_by(ISIC_Name) %>%
                 mutate_if(is.numeric, ~ round(((lead(.x)-.x) / .x)*100, digits = 1)) %>%
                 rename("Emissions" = "GHGinclBiomass",
-                       "Output" = "voutput",
+                       "Output Share" = "output_share",
                        "Real Output" = "realoutput",
                        "Real Costs" = "realexpend",
                        "Real Energy Costs" = "realcostEnergy") %>%
@@ -137,7 +167,7 @@ base_year <- 2005 # Base year for the normalizing the 3 effects
                 filter(year == 2000) %>% select(!year),
               join_by(ISIC_Name == ISIC_Name)) %>%
     select(ISIC_Name, Emissions, 'Change in Emissions',
-           Output, 'Change in Output', 'Real Output', 'Change in Real Output',
+           'Output Share', 'Change in Output Share', 'Real Output', 'Change in Real Output',
            "Real Costs", 'Change in Real Costs',
            'Real Energy Costs', 'Change in Real Energy Costs')
   
