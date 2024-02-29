@@ -116,7 +116,18 @@ end_year <- 2019 # End year to define time sequence under observation
 {
   dta_technique <- dta_decomp %>% 
     filter(classsystem == 'ISIC') %>% 
-    select(ISIC_Name, year, techn, scale, comp, scale_comp_techn)
+    select(ISIC_Name, year, techn, scale, comp, scale_comp_techn) %>%
+    mutate(line_size = ifelse(ISIC_Name == "Total Manufacturing", 1, 0.5))
+  
+  # Legend Titles
+  {
+    legend_titles <- c("Basic metals", "Chemicals", "Coke, refined petroleum, fuels",
+                       "Fabricated metals", "Food, beverages, tobacco", "Furniture, other, recycling",
+                       "Machinery and equipment", "Medical, precision, and optical", "Motor vehicles, trailers",
+                       "Office, computing, electrical", "Other non-metallic minerals", "Other transport equipment",      
+                       "Paper and publishing", "Rubber and plastics", "Textiles, apparel, fur, leather",
+                       "Wood products", "Total Manufacturing")
+  }
   
   # Plot Emissions by Industry
   lplot_emiss <- ggplot(data = dta_technique, aes(x=year, y=scale_comp_techn, color=ISIC_Name, group=ISIC_Name)) +
@@ -130,9 +141,11 @@ end_year <- 2019 # End year to define time sequence under observation
   # Loop through 'decomp' (individual effects) to create plots by industry
   for (i in decomp) {
     effects_plots[[paste0("lplot_", i)]] <- ggplot(data = dta_technique, aes(x=year, y=!!sym(i), color=ISIC_Name, group=ISIC_Name)) +
-      geom_line() +
+      geom_line(size=dta_technique$line_size) +
       scale_x_discrete(breaks = year_breaks) +
-      labs(x=NULL, y = "Base 2000 = 100")
+      scale_colour_discrete(breaks = legend_titles) +
+      labs(x=NULL, y = "Base 2000 = 100") +
+      guides(size = FALSE)
   }
   
   # Combine Plots
@@ -146,13 +159,15 @@ end_year <- 2019 # End year to define time sequence under observation
     
     # Combine everything
     final_plot <- (Reduce('+', label_plots) + plot_layout(ncol = 3)) / 
-      (Reduce('+', effects_plots) + plot_layout(ncol = 3)) +
-      plot_layout(guides = 'collect', axis_titles = "collect", heights = c(1, 8)) &
-      theme(legend.position = "bottom", legend.title=element_blank())
+      (Reduce('+', effects_plots) + plot_layout(ncol = 3, axes = "collect")) +
+      plot_layout(guides = 'collect', axis_titles = "collect", heights = c(1, 10)) &
+      theme(legend.position = "bottom",
+            legend.title = element_blank(),
+            legend.text = element_text(size = 7), # Adjust this value as needed
+            legend.key.size = unit(0.5, "lines"))
     }
-  print(final_plot)
+  print(final_plot) # Print 11.00-6.00
 }
-dta_tt <- dta_technique %>% filter(ISIC_Name == "Chemicals")
 "
 Technique Effect is positive for all industries,
 Scale Effect differs substantially by industry, see change in Output(real output)
