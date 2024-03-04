@@ -49,7 +49,11 @@ base_year <- 2005 # Base year for parameter
     # Calculate Pollution Elasticity with ZEW (2023) Estimation Method
     group_by(NACE_Name, ISIC_Name) %>%
     arrange(year, .by_group = TRUE) %>%
-    mutate(energyshare = realcostEnergy/realoutput,
+    mutate(lnrealoutput = log(realoutput),
+           lnrealcostEnergy = log(realcostEnergy),
+           lnghg = log(!!sym(ghg)),
+           energyshare = realcostEnergy/realoutput,
+           lnenergyshare = log(energyshare),
            
            chngOutputEnergyNACE = (lead(energyshare) - energyshare)/(lead(realoutput) - realoutput),
            elasticityOutputEnergyNACE = (1/chngOutputEnergyNACE) * (energyshare/realoutput),
@@ -66,6 +70,33 @@ base_year <- 2005 # Base year for parameter
   # Add Label to column 'tonspollcost'
   attr(dta_parameter$tonsPollCost, 'label') <- 'Tons pollution per 1,000,000 DKK'
 }
+
+dta_elast <- data.frame(NACE_Name = character(0), 
+                        elasticityOutputEnergyNACE = numeric(0), 
+                        elasticityEmissionEnergyNACE = numeric(0),
+                        pollutionelasticityNACE = numeric(0))
+
+for(i in unique(dta_parameter$NACE_Name)){
+  dta_model <- dta_parameter %>% filter(NACE_Name == i & !is.na(NACE_Name) & year < 2017)
+  
+  model_test_OutputEnergy <- lm(energyshare ~ lnrealcostEnergy, data = dta_model)
+  model_test_EmissionsEnergy <- lm(lnghg ~ lnrealcostEnergy, data = dta_model)
+  
+  elasticityOutputEnergyNACE <- coef(model_test_OutputEnergy)[2]
+  elasticityEmissionEnergyNACE <- coef(model_test_EmissionsEnergy)[2]
+  pollutionelasticityNACE = elasticityOutputEnergyNACE/elasticityEmissionEnergyNACE
+  
+  dta_elast <- rbind(dta_elast,
+                     data.frame(NACE_Name = i,
+                                elasticityOutputEnergyNACE = elasticityOutputEnergyNACE, 
+                                elasticityEmissionEnergyNACE = elasticityEmissionEnergyNACE,
+                                pollutionelasticityNACE = pollutionelasticityNACE))
+}
+
+nacett <- unique(dta_parameter$NACE_Name)
+testt <- dta_parameter %>% filter(NACE_Name %in% nacett & !is.na(NACE_Name)) %>%
+  select(year, NACE_Name, pollutionelasticity) %>%
+  arrange(year)
 
 # Exporting all Parameters for base year to LATEX
 {

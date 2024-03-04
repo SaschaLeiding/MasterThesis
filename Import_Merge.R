@@ -317,7 +317,6 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
     group_by(classif) %>% 
     arrange(year, .by_group = TRUE) %>%
     mutate(!!varname_ghgintensity := !!sym(ghg)/(voutput/1000),
-           output_share = voutput/sum(voutput),
            realoutput = voutput / (PPI/100),
            expend = interConsumption + CompEmployees,
            realexpend = expend / (PPI/100),
@@ -348,7 +347,9 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
                 filter(!is.na(NACE_Code) & !(NACE_Code %in% NACEcode_sum))) %>%
     mutate(ISIC_Code = NA,
            ISIC_Name = NA,
-           classsystem = 'NACE')
+           classsystem = 'NACE') %>%
+    group_by(year) %>%
+    mutate(output_share = realoutput/(sum(realoutput)/2)) # divide by 2 because the sum includes each idniv. and the total together
 }
 
 # Create Shapiro&Walker(ISIC)-classification data
@@ -370,7 +371,10 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
                 filter(!is.na(ISIC_Code) & !(ISIC_Code %in% ISICcode_sum))) %>%
     mutate(NACE_Code = NA,
            NACE_Name = NA,
-           classsystem = 'ISIC')
+           classsystem = 'ISIC') %>%
+    group_by(year) %>%
+    mutate(output_share = realoutput/(sum(realoutput)/2)) # divide by 2 because the sum includes each idniv. and the total together
+  
 }
 
 # Combine NACE and ISIC data

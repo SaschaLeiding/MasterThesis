@@ -13,7 +13,7 @@ Print Plots as PDF in 'Landscape' 8.00 x 6.00
 
 # Install & Load Packages
 {
-  #install.packages("tidyverse")
+  install.packages("tidyverse")
   #install.packages("xtable")
   #install.packages("patchwork")
   
@@ -182,18 +182,20 @@ Composition for all negative
 {
   dta_style <- dta_decomp %>%
     filter(classsystem == "ISIC" & year == 2000) %>%
-    select(ISIC_Name, !!sym(ghg), output_share, realoutput, realexpend, realcostEnergy) %>%
-    mutate_if(is.numeric, ~round(.x, digits = 0)) %>%
+    select(ISIC_Name, !!sym(ghg), output_share, realoutput, realexpend, realcostEnergy, ISIC_Code) %>%
+    mutate(across(realoutput:realcostEnergy, ~round(.x, digits = 0)),
+           output_share = output_share*100) %>%
     rename("Emissions" = "GHGinclBiomass",
            "Output Share" = "output_share",
            "Real Output" = "realoutput",
            "Real Costs" = "realexpend",
            "Real Energy Costs" = "realcostEnergy") %>%
+    arrange(ISIC_Code) %>%
     
     left_join(dta_decomp %>%
                 filter(classsystem == "ISIC" & (year %in% c(2000,2016))) %>%
                 select(ISIC_Name, year, !!sym(ghg), output_share, realoutput, realexpend, realcostEnergy) %>%
-                mutate_if(is.numeric, ~round(.x, digits = 0)) %>%
+                #mutate_if(is.numeric, ~round(.x, digits = 0)) %>%
                 group_by(ISIC_Name) %>%
                 mutate_if(is.numeric, ~ round(((lead(.x)-.x) / .x)*100, digits = 1)) %>%
                 rename("Emissions" = "GHGinclBiomass",
@@ -218,13 +220,18 @@ Composition for all negative
     return(df)
   }
   
+#  italic <- function(x){
+#    paste0('{\\emph{ ', x, '}}')
+#  }
+  
   # Apply the italic formatting to specified columns by index
-  cols_to_italicize <- c(3, 5, 7, 9 , 11) # Specify columns to italicize by their index
+  #cols_to_italicize <- c(3, 5, 7, 9 , 11) # Specify columns to italicize by their index
+  cols_to_italicize <- grep("^Change", names(dta_style))
   dta_styleitalic <- italicize_columns(dta_style, cols_to_italicize)
   
   # Create a Table for LATEX format
   table_stylized <- xtable(x = dta_styleitalic,
-                           digits = c(0,0,0,1,0,1,0,1,0,1,0,1)) # Set number of decimals per column
+                           digits = c(0,0,0,1,2,1,0,1,0,1,0,1)) # Set number of decimals per column
   
   # Print Parameters table in LATEX format
   print(table_stylized , include.rownames=FALSE, format.args = list(big.mark = ",", decimal.mark = "."))
