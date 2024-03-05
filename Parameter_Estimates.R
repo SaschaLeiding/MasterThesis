@@ -64,11 +64,11 @@ base_year <- 2005 # Base year for parameter
            energyshare = realcostEnergy/realoutput,
            lnenergyshare = log(energyshare),
            
-           chngOutputEnergyNACE = (lead(energyshare) - energyshare)/(lead(realoutput) - realoutput),
-           elasticityOutputEnergyNACE1 = (1/chngOutputEnergyNACE) * (energyshare/realoutput),
+           chngOutputEnergyNACE = (lead(lnrealcostEnergy) - lnrealcostEnergy)/(lead(energyshare) - energyshare),
+           elasticityOutputEnergyNACE1 = (1/chngOutputEnergyNACE) * (lnrealcostEnergy/energyshare),
            
-           chngEmissionEnergyNACE = (lead(realcostEnergy) - realcostEnergy)/(lead(!!sym(ghg)) - !!sym(ghg)),
-           elasticityEmissionEnergyNACE1 = (1/chngEmissionEnergyNACE) * (realcostEnergy/!!sym(ghg)),
+           chngEmissionEnergyNACE = (lead(lnrealcostEnergy) - lnrealcostEnergy)/(lead(lnghg) - !lnghg),
+           elasticityEmissionEnergyNACE1 = (1/chngEmissionEnergyNACE) * (lnrealcostEnergy/lnghg),
            pollutionelasticityNACE1 = elasticityOutputEnergyNACE1/elasticityEmissionEnergyNACE1) %>%
   ungroup()
   
@@ -181,7 +181,7 @@ base_year <- 2005 # Base year for parameter
                                      NA, "Non-metallic minerals", "Vehicles, other transport, n.e.c.",                
                                      "Pulp, paper, publishing","Rubber and plastics", "Textiles, wearing apparel, leather",      
                                      "Wood products"),
-                       USpollutionelasticity = c(0.5557, 0.0205, 0.0212, 0.0019, 
+                       USpollutionelasticity = c(0.0557, 0.0205, 0.0212, 0.0019, 
                                         0.0040, 0.0047, 0.0015, 0.0014, 
                                         0.0016, 0.0023, 0.0303, 0.0019, 
                                         0.0223, 0.0048, 0.0022, 0.0103))
@@ -206,7 +206,7 @@ base_year <- 2005 # Base year for parameter
                                                    0.019, 0.008, 0.038))
 }
 
-# Table 2: Exporting all Parameters for base year to LATEX
+# Table 2: Exporting all Parameters for base year to LATEX (ISIc)
 {
   # Create a Table for LATEX format
   table2 <- xtable(x = (dta_parameter %>%
@@ -228,25 +228,51 @@ base_year <- 2005 # Base year for parameter
   print(table2, include.rownames=FALSE)
 }
 
-# Table 3: Exporting all Pollution Elasticities
-{
-  
-}
-
-# Table 4: Exporting elasticities from ZEW method to LATEX
+# Table 3: Exporting all Pollution Elasticities (ISIC)
 {
   # Create a Table for LATEX format
-  table_elasticities <- xtable(x = (dta_parameter %>%
-                                       filter(year == base_year & classsystem == 'NACE') %>%
-                                       arrange(NACE_Code) %>%
-                                       select(NACE_Name, elasticityOutputEnergyNACE2,
-                                              elasticityEmissionEnergyNACE2, pollutionelasticityNACE2)),
-                                digits = c(2,2,3,3,3)) # Set number of decimals per column
+  table3 <- xtable(x = (dta_parameter %>%
+                          filter(year == base_year & classsystem == 'ISIC') %>%
+                          arrange(ISIC_Code) %>%
+                          left_join(dta_US %>% select(ISIC_Name, USpollutionelasticity),
+                                    join_by(ISIC_Name == ISIC_Name)) %>%
+                          left_join(dta_GER %>% select(ISIC_Name, GERpollutionelasticity),
+                                    join_by(ISIC_Name == ISIC_Name)) %>%
+                          select(ISIC_Name, 
+                                 USpollutionelasticity, GERpollutionelasticity,
+                                 pollutionelasticityISIC, pollutionelasticityNACE1,
+                                 pollutionelasticityISIC2, pollutionelasticityISIC3)),
+                   digits = c(2,2,4,4,4,4,4,4)) # Set number of decimals per column
   
   # Change Column Names in LATEX table
-  names(table_elasticities ) <- c("Industry", "Energy Output elasticity",
-                                  "Energy Emission elasticity", "Pollution elasticity")
+  names(table3) <- c("Industry",
+                     "US", "GER",
+                     "Scaled", "ZEW calcul.",
+                     "ZEW ln(Real Output)", "ZEW ln(Energy Share)")
   
   # Print Parameters table in LATEX format
-  print(table_elasticities , include.rownames=FALSE)
+  print(table3, include.rownames=FALSE)
+}
+
+# Table 4: Exporting Output Energy-/Emissions Energy/and Pollution elasticities from ZEW method to LATEX (NACE) OR Intermediate Results
+{
+  # Create a Table for LATEX format
+  table4 <- xtable(x = (dta_parameter %>%
+                          filter(year == base_year & classsystem == 'NACE') %>%
+                          arrange(NACE_Code) %>%
+                          left_join(dta_GER, join_by(NACE_Name == NACE_Name)) %>%
+                          select(NACE_Name, 
+                                 GERenergyOutputElasticity, elasticityOutputEnergyNACE3,
+                                 GERenergyEmissionElasticity, elasticityEmissionEnergyNACE2,
+                                 GERpollutionelasticity, pollutionelasticityNACE3)),
+                                digits = c(2,2,3,3,3,3,3,3)) # Set number of decimals per column
+  
+  # Change Column Names in LATEX table
+  names(table4) <- c("Industry", 
+                     "Energy Output elasticity GER", "Energy Output elasticity DNK",
+                     "Energy Emission elasticity GER", "Energy Emission elasticity DNK",
+                     "Pollution elasticity GER", "Pollution elasticity DNK")
+  
+  # Print Parameters table in LATEX format
+  print(table4 , include.rownames=FALSE)
 }
