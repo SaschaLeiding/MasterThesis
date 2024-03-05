@@ -100,12 +100,22 @@ for(i in na.omit(unique(dta_inter$NACE_Name))){
     left_join(dta_elast, join_by(NACE_Name == NACE_Name))
 }
 
-dta_US <- data.frame(ISIC_NAME = na.omit(unique(dta_parameter$ISIC_Name)),
-                     USpollelasti = c(0.5557, 0.0205, 0.0212, 0.0019, 0.0040,
-                                      0.0047, 0.0015, 0.0014, 0.0016, NA,
-                                      0.0303, 0.0019, 0.0223, 0.0048, 0.0022,
-                                      0.0103))
-dta_GER <- data.frame(NACE_Name = na.omit(unique(dta_parameter$NACE_Name)),
+dta_US <- data.frame(ISIC_NAME = c("Basic metals", "Chemicals", "Coke, refined petroleum, fuels",
+                                   "Fabricated metals", "Food, beverages, tobacco", "Furniture, other, recycling",
+                                   "Machinery and equipment", "Medical, precision, and optical", "Motor vehicles, trailers",
+                                   "Office, computing, electrical", "Other non-metallic minerals", "Other transport equipment",
+                                   "Paper and publishing", "Rubber and plastics", "Textiles, apparel, fur, leather",
+                                   "Wood products"),
+                     USpollelasti = c(0.5557, 0.0205, 0.0212, 0.0019, 
+                                      0.0040, 0.0047, 0.0015, 0.0014, 
+                                      0.0016, NA, 0.0303, 0.0019, 
+                                      0.0223, 0.0048, 0.0022, 0.0103))
+dta_GER <- data.frame(NACE_Name = c("Basic Metals", "Chemicals and pharmaceuticals",        
+                                    "Coke, petroleum", "Food, beverages, tobacco",
+                                    "Metal products, electronics, machinery", "Non-metallic minerals",                 
+                                    "Pulp, paper, publishing","Rubber and plastics",
+                                    "Textiles, wearing apparel, leather", "Vehicles, other transport, n.e.c.",     
+                                    "Wood products"),
                       GERenergyOutputElasticity = c(0.061, 0.034, 0.007, 0.016,
                                                  0.010, 0.065, 0.059, 0.022,
                                                  0.018, 0.008, 0.031),
@@ -123,7 +133,8 @@ dta_GER <- data.frame(NACE_Name = na.omit(unique(dta_parameter$NACE_Name)),
                                   arrange(ISIC_Code) %>%
                                   select(ISIC_Name, tonsPollCost,
                                          pollutionelasticityISIC, pollutionelasticityNACE1,
-                                         inputshare, elasticitysubstitution)),
+                                         inputshare, elasticitysubstitution) %>%
+                                    left_join(D)),
                            digits = c(2,2,2,4,4,2,2)) # Set number of decimals per column
   
   # Change Column Names in LATEX table

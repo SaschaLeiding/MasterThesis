@@ -99,13 +99,15 @@ end_year <- 2019 # End year to define time sequence under observation
   dta_decomp_plot <- dta_decomp %>% filter(ISIC_Name == 'Total Manufacturing') %>%
     select(year, scale, techn, comp, normalized_ghg) %>%
     pivot_longer(cols = scale:normalized_ghg, names_to = 'Effect', values_to = 'Values')
-  
+
   lplot_decom <- ggplot(data = dta_decomp_plot, aes(x = year, y = Values, color = Effect, group = Effect)) +
     geom_line() +
     labs(#title = "Development of various Greenhouse Gas Emissions",
       x = "Year",
       y = paste0("Base ", base_year, " = 100"),
       color = NULL) +
+    #scale_colour_manual(values = c("GHG" = "blue", "Scale" = "black", "Composition" = "green", "Technique" = "red"),
+    #                    labels = c("GHG", "Scale", "Composition", "Technique")) +
     scale_colour_manual(values = c("blue", "black", "green", "red"),
                         labels = c("Composition", "GHG", "Scale", "Technique")) +
     theme(legend.position = c(.15, .22))
@@ -219,10 +221,6 @@ Composition for all negative
     }
     return(df)
   }
-  
-#  italic <- function(x){
-#    paste0('{\\emph{ ', x, '}}')
-#  }
   
   # Apply the italic formatting to specified columns by index
   #cols_to_italicize <- c(3, 5, 7, 9 , 11) # Specify columns to italicize by their index
