@@ -7,6 +7,8 @@ Pollution elasticities compromise:
 (b) 'pollutionelasticityNACE1' = ZEW Method by construction and not cross-time estimation
 (c) 'pollutionelasticityNACE2' = ZEW Method by estimation where for Output Energy Elasticity dependent ln Real Output
 (d) 'pollutionelasticityNACE3' = ZEW Method by estimation where for Output Energy Elasticity dependent ln Energy Share
+(e) 'pollutionelasticityISIC2' = ZEW Method by estimation where for Output Energy Elasticity dependent ln Real Output
+(f) 'pollutionelasticityISIC3' = ZEW Method by estimation where for Output Energy Elasticity dependent ln Energy Share
 
 The input for this script is the data 'dta_analysis.rds' from the script 
 'Import_Merge.R'.
@@ -36,7 +38,7 @@ costs <- 'realexpend' # Define column used as Costs for calculations
 alpha <- 0.011 # mean Pollution elasticity
 base_year <- 2005 # Base year for parameter
 
-# Create Data with parameters
+# Create Data with parameters, where Pollution Elasticity by Scaling and ZEW-method non-estimation
 {
   "
   Note: Greenhouse gases are in 1,000 tonnes, whereas output and costs data is in million DKK
@@ -78,104 +80,152 @@ base_year <- 2005 # Base year for parameter
   attr(dta_inter$tonsPollCost, 'label') <- 'Tons pollution per 1,000,000 DKK'
 }
 
-dta_elast <- data.frame(NACE_Name = character(0),
-                        ISIC_Name = character(0),
-                        
-                        elasticityOutputEnergyNACE2 = numeric(0), 
-                        elasticityEmissionEnergyNACE2 = numeric(0),
-                        pollutionelasticityNACE2 = numeric(0),
-                        
-                        elasticityOutputEnergyNACE3 = numeric(0),
-                        pollutionelasticityNACE3 = numeric(0))
-
-# NACE: Estimation Loop for Pollution elasticity 
-for(i in na.omit(unique(dta_inter$NACE_Name))){
-  dta_model <- dta_inter %>%
-    filter(NACE_Name == i & !is.na(NACE_Name) & year < 2017)
+# Estimating Pollution Elasticity (ZEW-method)
+{
+  # Create Dataframe
+  {
+    dta_elast <- data.frame(NACE_Name = character(0),
+                            ISIC_Name = character(0),
+                            
+                            elasticityOutputEnergyNACE2 = numeric(0), 
+                            elasticityEmissionEnergyNACE2 = numeric(0),
+                            pollutionelasticityNACE2 = numeric(0),
+                            elasticityOutputEnergyNACE3 = numeric(0),
+                            pollutionelasticityNACE3 = numeric(0),
+                            
+                            elasticityOutputEnergyISIC2 = numeric(0), 
+                            elasticityEmissionEnergyISIC2 = numeric(0),
+                            pollutionelasticityISIC2 = numeric(0),
+                            elasticityOutputEnergyISIC3 = numeric(0),
+                            pollutionelasticityISIC3 = numeric(0))
+  }
   
-  # Run Estimations
-  model_test_OutputEnergyNACE2 <- lm(lnrealoutput ~ lnrealcostEnergy, data = dta_model)
-  model_test_OutputEnergyNACE3 <- lm(energyshare ~ lnrealcostEnergy, data = dta_model)
-  model_test_EmissionsEnergyNACE2 <- lm(lnghg ~ lnrealcostEnergy, data = dta_model)
+  # NACE: Estimation Loop for Pollution elasticity 
+  for(i in na.omit(unique(dta_inter$NACE_Name))){
+    dta_model <- dta_inter %>%
+      filter(NACE_Name == i & !is.na(NACE_Name) & year < 2017)
+    
+    # Run Estimations
+    model_test_OutputEnergyNACE2 <- lm(lnrealoutput ~ lnrealcostEnergy, data = dta_model)
+    model_test_OutputEnergyNACE3 <- lm(energyshare ~ lnrealcostEnergy, data = dta_model)
+    model_test_EmissionsEnergyNACE2 <- lm(lnghg ~ lnrealcostEnergy, data = dta_model)
+    
+    # Extract Beta 1 from Models
+    elasticityOutputEnergyNACE2 <- coef(model_test_OutputEnergyNACE2)[2]
+    elasticityOutputEnergyNACE3 <- coef(model_test_OutputEnergyNACE3)[2]
+    elasticityEmissionEnergyNACE2 <- coef(model_test_EmissionsEnergyNACE2)[2]
+    
+    # Calculate Pollution Elasticity from estimated elasticities (beta 1)
+    pollutionelasticityNACE2 = elasticityOutputEnergyNACE2/elasticityEmissionEnergyNACE2
+    pollutionelasticityNACE3 = elasticityOutputEnergyNACE3/elasticityEmissionEnergyNACE2
+    
+    # Add estimations to Model
+    dta_elast <- dta_elast %>%
+      add_row(NACE_Name = i,
+              elasticityOutputEnergyNACE2 = elasticityOutputEnergyNACE2,
+              elasticityOutputEnergyNACE3 = elasticityOutputEnergyNACE3,
+              elasticityEmissionEnergyNACE2 = elasticityEmissionEnergyNACE2,
+              pollutionelasticityNACE2 = pollutionelasticityNACE2,
+              pollutionelasticityNACE3 = pollutionelasticityNACE3)
+  }
   
-  # Extract Beta 1 from Models
-  elasticityOutputEnergyNACE2 <- coef(model_test_OutputEnergyNACE2)[2]
-  elasticityOutputEnergyNACE3 <- coef(model_test_OutputEnergyNACE3)[2]
-  elasticityEmissionEnergyNACE2 <- coef(model_test_EmissionsEnergyNACE2)[2]
-  
-  # Calculate Pollution Elasticity from estimated elasticities (beta 1)
-  pollutionelasticityNACE2 = elasticityOutputEnergyNACE2/elasticityEmissionEnergyNACE2
-  pollutionelasticityNACE3 = elasticityOutputEnergyNACE3/elasticityEmissionEnergyNACE2
-  
-  # Add estimations to Model
-  dta_elast <- dta_elast %>%
-    add_row(NACE_Name = i,
-            elasticityOutputEnergyNACE2 = elasticityOutputEnergyNACE2,
-            elasticityOutputEnergyNACE3 = elasticityOutputEnergyNACE3,
-            elasticityEmissionEnergyNACE2 = elasticityEmissionEnergyNACE2,
-            pollutionelasticityNACE2 = pollutionelasticityNACE2,
-            pollutionelasticityNACE3 = pollutionelasticityNACE3)
+  # ISIC: Estimation Loop for Pollution elasticity 
+  for(i in na.omit(unique(dta_inter$ISIC_Name))){
+    dta_model <- dta_inter %>%
+      filter(ISIC_Name == i & !is.na(ISIC_Name) & year < 2017)
+    
+    # Run Estimations
+    model_test_OutputEnergyISIC2 <- lm(lnrealoutput ~ lnrealcostEnergy, data = dta_model)
+    model_test_OutputEnergyISIC3 <- lm(energyshare ~ lnrealcostEnergy, data = dta_model)
+    model_test_EmissionsEnergyISIC2 <- lm(lnghg ~ lnrealcostEnergy, data = dta_model)
+    
+    # Extract Beta 1 from Models
+    elasticityOutputEnergyISIC2 <- coef(model_test_OutputEnergyISIC2)[2]
+    elasticityOutputEnergyISIC3 <- coef(model_test_OutputEnergyISIC3)[2]
+    elasticityEmissionEnergyISIC2 <- coef(model_test_EmissionsEnergyISIC2)[2]
+    
+    # Calculate Pollution Elasticity from estimated elasticities (beta 1)
+    pollutionelasticityISIC2 = elasticityOutputEnergyISIC2/elasticityEmissionEnergyISIC2
+    pollutionelasticityISIC3 = elasticityOutputEnergyISIC3/elasticityEmissionEnergyISIC2
+    
+    # Add estimations to Model
+    dta_elast <- dta_elast %>%
+      add_row(ISIC_Name = i,
+              elasticityOutputEnergyISIC2 = elasticityOutputEnergyISIC2,
+              elasticityOutputEnergyISIC3 = elasticityOutputEnergyISIC3,
+              elasticityEmissionEnergyISIC2 = elasticityEmissionEnergyISIC2,
+              pollutionelasticityISIC2 = pollutionelasticityISIC2,
+              pollutionelasticityISIC3 = pollutionelasticityISIC3)
+  }
 }
 
 # Add 'dta_elast' to dta_inter to create 
 {
   dta_parameter <- dta_inter %>%
-    left_join(dta_elast, join_by(NACE_Name == NACE_Name))
+    left_join(dta_elast, join_by(NACE_Name == NACE_Name, ISIC_Name == ISIC_Name))
 }
 
-dta_US <- data.frame(ISIC_NAME = c("Basic metals", "Chemicals", "Coke, refined petroleum, fuels",
-                                   "Fabricated metals", "Food, beverages, tobacco", "Furniture, other, recycling",
-                                   "Machinery and equipment", "Medical, precision, and optical", "Motor vehicles, trailers",
-                                   "Office, computing, electrical", "Other non-metallic minerals", "Other transport equipment",
-                                   "Paper and publishing", "Rubber and plastics", "Textiles, apparel, fur, leather",
-                                   "Wood products"),
-                     NACE_Name = c("Basic Metals", "Chemicals and pharmaceuticals", "Coke, petroleum", 
-                                   NA, "Food, beverages, tobacco", NA,
-                                   "Metal products, electronics, machinery", NA, NA,
-                                   NA, "Non-metallic minerals", "Vehicles, other transport, n.e.c.",                
-                                   "Pulp, paper, publishing","Rubber and plastics", "Textiles, wearing apparel, leather",      
-                                   "Wood products"),
-                     USpollelasti = c(0.5557, 0.0205, 0.0212, 0.0019, 
-                                      0.0040, 0.0047, 0.0015, 0.0014, 
-                                      0.0016, NA, 0.0303, 0.0019, 
-                                      0.0223, 0.0048, 0.0022, 0.0103))
+# Create Dataframes with U.S. (Shapiro and Walker), and Germany (ZEW) values for pollution elasticity
+{
+  # U.S. Dataframe
+  # Does not include sector 'Radio, television, communication' as its not distinguishable in Danish Classification
+  dta_US <- data.frame(ISIC_Name = c("Basic metals", "Chemicals", "Coke, refined petroleum, fuels",
+                                     "Fabricated metals", "Food, beverages, tobacco", "Furniture, other, recycling",
+                                     "Machinery and equipment", "Medical, precision, and optical", "Motor vehicles, trailers",
+                                     "Office, computing, electrical", "Other non-metallic minerals", "Other transport equipment",
+                                     "Paper and publishing", "Rubber and plastics", "Textiles, apparel, fur, leather",
+                                     "Wood products"),
+                       NACE_Name = c("Basic Metals", "Chemicals and pharmaceuticals", "Coke, petroleum", 
+                                     NA, "Food, beverages, tobacco", NA,
+                                     "Metal products, electronics, machinery", NA, NA,
+                                     NA, "Non-metallic minerals", "Vehicles, other transport, n.e.c.",                
+                                     "Pulp, paper, publishing","Rubber and plastics", "Textiles, wearing apparel, leather",      
+                                     "Wood products"),
+                       USpollutionelasticity = c(0.5557, 0.0205, 0.0212, 0.0019, 
+                                        0.0040, 0.0047, 0.0015, 0.0014, 
+                                        0.0016, 0.0023, 0.0303, 0.0019, 
+                                        0.0223, 0.0048, 0.0022, 0.0103))
+  
+  # Germany Dataframe
+  dta_GER <- data.frame(NACE_Name = c("Basic Metals", "Chemicals and pharmaceuticals", "Coke, petroleum", 
+                                      "Food, beverages, tobacco", "Metal products, electronics, machinery", "Non-metallic minerals",                 
+                                      "Pulp, paper, publishing","Rubber and plastics", "Textiles, wearing apparel, leather", 
+                                      "Vehicles, other transport, n.e.c.", "Wood products"),
+                        ISIC_Name = c("Basic metals", "Chemicals", "Coke, refined petroleum, fuels",
+                                      "Food, beverages, tobacco", "Machinery and equipment", "Other non-metallic minerals",
+                                      "Paper and publishing", "Rubber and plastics", "Textiles, apparel, fur, leather",
+                                      "Other transport equipment", "Wood products"),
+                        GERenergyOutputElasticity = c(0.061, 0.034, 0.007, 0.016,
+                                                      0.010, 0.065, 0.059, 0.022,
+                                                      0.018, 0.008, 0.031),
+                        GERenergyEmissionElasticity = c(0.993, 0.993, 1.001, 0.974,
+                                                        1.011, 0.946, 0.962, 1.012,
+                                                        1.002, 1.001, 0.873),
+                        GERpollutionelasticity = c(0.063, 0.041, 0.009, 0.020,
+                                                   0.010, 0.078, 0.058, 0.024,
+                                                   0.019, 0.008, 0.038))
+}
 
-dta_GER <- data.frame(NACE_Name = c("Basic Metals", "Chemicals and pharmaceuticals", "Coke, petroleum", 
-                                    "Food, beverages, tobacco", "Metal products, electronics, machinery", "Non-metallic minerals",                 
-                                    "Pulp, paper, publishing","Rubber and plastics", "Textiles, wearing apparel, leather", 
-                                    "Vehicles, other transport, n.e.c.", "Wood products"),
-                      ISIC_NAME = c("Basic metals", "Chemicals", "Coke, refined petroleum, fuels",
-                                    "Food, beverages, tobacco", "Machinery and equipment", "Other non-metallic minerals",
-                                    "Paper and publishing", "Rubber and plastics", "Textiles, apparel, fur, leather",
-                                    "Other transport equipment", "Wood products"),
-                      GERenergyOutputElasticity = c(0.061, 0.034, 0.007, 0.016,
-                                                 0.010, 0.065, 0.059, 0.022,
-                                                 0.018, 0.008, 0.031),
-                      GERenergyEmissionElasticity = c(0.993, 0.993, 1.001, 0.974,
-                                                   1.011, 0.946, 0.962, 1.012,
-                                                   1.002, 1.001, 0.873),
-                      GERpollutionelasticity = c(0.063, 0.041, 0.009, 0.020,
-                                                 0.010, 0.078, 0.058, 0.024,
-                                                 0.019, 0.008, 0.038))
 # Table 2: Exporting all Parameters for base year to LATEX
 {
   # Create a Table for LATEX format
-  table2_ALLparameters <- xtable(x = (dta_parameter %>%
-                                  filter(year == base_year & classsystem == 'ISIC') %>%
-                                  arrange(ISIC_Code) %>%
-                                  select(ISIC_Name, tonsPollCost,
-                                         pollutionelasticityISIC, pollutionelasticityNACE1,
-                                         inputshare, elasticitysubstitution) %>%
-                                    left_join(D)),
-                           digits = c(2,2,2,4,4,2,2)) # Set number of decimals per column
+  table2 <- xtable(x = (dta_parameter %>%
+                          filter(year == base_year & classsystem == 'ISIC') %>%
+                          arrange(ISIC_Code) %>%
+                          left_join(dta_US %>% select(ISIC_Name, USpollutionelasticity),
+                                    join_by(ISIC_Name == ISIC_Name)) %>%
+                          select(ISIC_Name, tonsPollCost,
+                                 USpollutionelasticity, pollutionelasticityISIC, pollutionelasticityISIC3,
+                                 inputshare, elasticitysubstitution)),
+                   digits = c(2,2,2,4,4,4,2,2)) # Set number of decimals per column
   
   # Change Column Names in LATEX table
-  names(table2_ALLparameters) <- c("Industry", "Tons pollution per m DKK costs",
-                             "Pollution elasticity", "Pollution elasticity NACE",
+  names(table2) <- c("Industry", "Tons pollution per m DKK costs",
+                             "Pollution elasticity US", "Pollution elasticity DNK1", "Pollution elasticity DNK2",
                              "Input Share", "Elasticity of Substitution")
   
   # Print Parameters table in LATEX format
-  print(table2_ALLparameters, include.rownames=FALSE)
+  print(table2, include.rownames=FALSE)
 }
 
 # Table 3: Exporting all Pollution Elasticities
