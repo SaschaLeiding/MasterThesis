@@ -1,5 +1,12 @@
 "
 This Script is to do the Parameter Estimates per industry and time.
+It calculates the parameters 'tons pollution per m DKK', 'Input Share',
+'Elasticity of Substitution' and various 'Pollution Elasticity'
+Pollution elasticities compromise:
+(a) 'pollutionelasticityISIC' = U.S. mean scaled by pollution per sector
+(b) 'pollutionelasticityNACE1' = ZEW Method by construction and not cross-time estimation
+(c) 'pollutionelasticityNACE2' = ZEW Method by estimation where for Output Energy Elasticity dependent ln Real Output
+(d) 'pollutionelasticityNACE3' = ZEW Method by estimation where for Output Energy Elasticity dependent ln Energy Share
 
 The input for this script is the data 'dta_analysis.rds' from the script 
 'Import_Merge.R'.
@@ -71,27 +78,43 @@ base_year <- 2005 # Base year for parameter
   attr(dta_inter$tonsPollCost, 'label') <- 'Tons pollution per 1,000,000 DKK'
 }
 
-dta_elast <- data.frame(NACE_Name = character(0), 
+dta_elast <- data.frame(NACE_Name = character(0),
+                        ISIC_Name = character(0),
+                        
                         elasticityOutputEnergyNACE2 = numeric(0), 
                         elasticityEmissionEnergyNACE2 = numeric(0),
-                        pollutionelasticityNACE2 = numeric(0))
+                        pollutionelasticityNACE2 = numeric(0),
+                        
+                        elasticityOutputEnergyNACE3 = numeric(0),
+                        pollutionelasticityNACE3 = numeric(0))
 
+# NACE: Estimation Loop for Pollution elasticity 
 for(i in na.omit(unique(dta_inter$NACE_Name))){
   dta_model <- dta_inter %>%
     filter(NACE_Name == i & !is.na(NACE_Name) & year < 2017)
   
-  model_test_OutputEnergy <- lm(energyshare ~ lnrealcostEnergy, data = dta_model)
-  model_test_EmissionsEnergy <- lm(lnghg ~ lnrealcostEnergy, data = dta_model)
+  # Run Estimations
+  model_test_OutputEnergyNACE2 <- lm(lnrealoutput ~ lnrealcostEnergy, data = dta_model)
+  model_test_OutputEnergyNACE3 <- lm(energyshare ~ lnrealcostEnergy, data = dta_model)
+  model_test_EmissionsEnergyNACE2 <- lm(lnghg ~ lnrealcostEnergy, data = dta_model)
   
-  elasticityOutputEnergyNACE2 <- coef(model_test_OutputEnergy)[2]
-  elasticityEmissionEnergyNACE2 <- coef(model_test_EmissionsEnergy)[2]
+  # Extract Beta 1 from Models
+  elasticityOutputEnergyNACE2 <- coef(model_test_OutputEnergyNACE2)[2]
+  elasticityOutputEnergyNACE3 <- coef(model_test_OutputEnergyNACE3)[2]
+  elasticityEmissionEnergyNACE2 <- coef(model_test_EmissionsEnergyNACE2)[2]
+  
+  # Calculate Pollution Elasticity from estimated elasticities (beta 1)
   pollutionelasticityNACE2 = elasticityOutputEnergyNACE2/elasticityEmissionEnergyNACE2
+  pollutionelasticityNACE3 = elasticityOutputEnergyNACE3/elasticityEmissionEnergyNACE2
   
-  dta_elast <- rbind(dta_elast,
-                     data.frame(NACE_Name = i,
-                                elasticityOutputEnergyNACE2 = elasticityOutputEnergyNACE2, 
-                                elasticityEmissionEnergyNACE2 = elasticityEmissionEnergyNACE2,
-                                pollutionelasticityNACE2 = pollutionelasticityNACE2))
+  # Add estimations to Model
+  dta_elast <- dta_elast %>%
+    add_row(NACE_Name = i,
+            elasticityOutputEnergyNACE2 = elasticityOutputEnergyNACE2,
+            elasticityOutputEnergyNACE3 = elasticityOutputEnergyNACE3,
+            elasticityEmissionEnergyNACE2 = elasticityEmissionEnergyNACE2,
+            pollutionelasticityNACE2 = pollutionelasticityNACE2,
+            pollutionelasticityNACE3 = pollutionelasticityNACE3)
 }
 
 # Add 'dta_elast' to dta_inter to create 
@@ -106,16 +129,25 @@ dta_US <- data.frame(ISIC_NAME = c("Basic metals", "Chemicals", "Coke, refined p
                                    "Office, computing, electrical", "Other non-metallic minerals", "Other transport equipment",
                                    "Paper and publishing", "Rubber and plastics", "Textiles, apparel, fur, leather",
                                    "Wood products"),
+                     NACE_Name = c("Basic Metals", "Chemicals and pharmaceuticals", "Coke, petroleum", 
+                                   NA, "Food, beverages, tobacco", NA,
+                                   "Metal products, electronics, machinery", NA, NA,
+                                   NA, "Non-metallic minerals", "Vehicles, other transport, n.e.c.",                
+                                   "Pulp, paper, publishing","Rubber and plastics", "Textiles, wearing apparel, leather",      
+                                   "Wood products"),
                      USpollelasti = c(0.5557, 0.0205, 0.0212, 0.0019, 
                                       0.0040, 0.0047, 0.0015, 0.0014, 
                                       0.0016, NA, 0.0303, 0.0019, 
                                       0.0223, 0.0048, 0.0022, 0.0103))
-dta_GER <- data.frame(NACE_Name = c("Basic Metals", "Chemicals and pharmaceuticals",        
-                                    "Coke, petroleum", "Food, beverages, tobacco",
-                                    "Metal products, electronics, machinery", "Non-metallic minerals",                 
-                                    "Pulp, paper, publishing","Rubber and plastics",
-                                    "Textiles, wearing apparel, leather", "Vehicles, other transport, n.e.c.",     
-                                    "Wood products"),
+
+dta_GER <- data.frame(NACE_Name = c("Basic Metals", "Chemicals and pharmaceuticals", "Coke, petroleum", 
+                                    "Food, beverages, tobacco", "Metal products, electronics, machinery", "Non-metallic minerals",                 
+                                    "Pulp, paper, publishing","Rubber and plastics", "Textiles, wearing apparel, leather", 
+                                    "Vehicles, other transport, n.e.c.", "Wood products"),
+                      ISIC_NAME = c("Basic metals", "Chemicals", "Coke, refined petroleum, fuels",
+                                    "Food, beverages, tobacco", "Machinery and equipment", "Other non-metallic minerals",
+                                    "Paper and publishing", "Rubber and plastics", "Textiles, apparel, fur, leather",
+                                    "Other transport equipment", "Wood products"),
                       GERenergyOutputElasticity = c(0.061, 0.034, 0.007, 0.016,
                                                  0.010, 0.065, 0.059, 0.022,
                                                  0.018, 0.008, 0.031),
