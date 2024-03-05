@@ -159,10 +159,12 @@ base_year <- 2005 # Base year for parameter
   }
 }
 
-# Add 'dta_elast' to dta_inter to create 
+# Add 'dta_elast' to 'dta_inter' to create 'dta_parameter and save it
 {
   dta_parameter <- dta_inter %>%
     left_join(dta_elast, join_by(NACE_Name == NACE_Name, ISIC_Name == ISIC_Name))
+  
+  saveRDS(dta_parameter, file = "./Data/dta_parameter.rds")
 }
 
 # Create Dataframes with U.S. (Shapiro and Walker), and Germany (ZEW) values for pollution elasticity
