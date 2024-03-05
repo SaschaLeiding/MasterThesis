@@ -38,10 +38,14 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
   output69_01 <- read_xlsx("./Data/DK_Production_69grouping_01.xlsx", range = "A4:F1495")
   output69_02 <- read_xlsx("./Data/DK_Production_69grouping_02.xlsx", range = "A4:E1495")
   
+  # Loading Business Demographics Data
+  business_01 <- read_xlsx("./Data/DEM01_BusinessDemo_EntryExit_117grouping.xlsx", range = "B3:X261")
+  business_02 <- read_xlsx("./Data/GF01_EnterpriseStatistics_117grouping.xlsx", range = "A3:X390")
+  
   # Loading Energy Cost data
   cost_ener <- read_xlsx("./Data/DK_CostsEnergy.xlsx", range = "B3:T1915")
   
-  #output <- read_xlsx("./Data/DK_OutputNominal_117grouping.xlsx", range = "C3:W122")
+  # Loading PPI data
   ppi <- read_xlsx("./Data/DK_PPIcommodities_Manufacturing.xlsx", range = "B3:KB46")
   ppi_mapp117 <- read_xlsx("./Data/Mapping_PPI_117grouping.xlsx", range = "B3:G122")
   ppi_mapp69 <- read_xlsx("./Data/Mapping_PPI_69grouping.xlsx", range = "B2:C73")
@@ -224,6 +228,22 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
     rm(output69_01)
     rm(output69_02)
   }
+}
+
+# Transform Business Data
+{
+  business <- business_01 %>% fill(...1) %>%
+    full_join((business_02 %>% fill(...1) %>% mutate(across(3:24, .fns=as.numeric)))) %>%
+    pivot_longer(cols = starts_with("20"),
+                 names_to = 'year',
+                 values_to = '.value') %>%
+    pivot_wider(names_from = ...1,
+                values_from = .value)
+  
+  colnames(business)[1] <- 'classif'
+  
+  rm(business_01)
+  rm(business_02)
 }
 
 # Transform PPI Data to be able to merge with emissions Data in longitudinal-format
