@@ -241,6 +241,11 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
                 values_from = .value)
   
   colnames(business)[1] <- 'classif'
+  colnames(business)[3] <- 'firmExit'
+  colnames(business)[4] <- 'firmEntry'
+  colnames(business)[5] <- 'firms'
+  colnames(business)[6] <- 'Employees'
+  colnames(business)[7] <- 'Turnover'
   
   rm(business_01)
   rm(business_02)
@@ -296,6 +301,7 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
     left_join((emissionsEqui) %>% distinct(), # Note: 'emissionsEqui' contains duplicates
               join_by(classif == classif, year == year)) %>% # Join 'GHG in CO2-equivalents Data
     left_join(output, join_by(classif == classif, year == year)) %>%
+    left_join(business, join_by(classif == classif, year == year)) %>%
     left_join((cost_ener_trans %>% select(!PPI)), join_by(classif == classif, year == year)) %>%
     left_join(ppi_mapp, join_by(classif == Class_output)) %>%
     
@@ -320,6 +326,7 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
     left_join((emissionsEqui) %>% distinct(), # Note: 'emissionsEqui' contains duplicates
               join_by(classif == classif, year == year)) %>% # Join 'GHG in CO2-equivalents Data
     left_join(output, join_by(classif == classif, year == year)) %>% # Join Output data
+    left_join(business, join_by(classif == classif, year == year)) %>% # Join Business data
     left_join(ppi_mapp, join_by(classif == Class_output)) %>% # Join Mapping for PPI to 117 grouping
     left_join(ppi_trans, join_by(Class_PPI == classif, year == year)) %>% # Join PPI values by previously inserted Mapping
     left_join((cost_ener_trans %>% select(!PPI)), 
