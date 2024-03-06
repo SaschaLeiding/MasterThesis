@@ -36,7 +36,7 @@ Attention: Variable 'ghg' must be the same in all Scripts
 ghg <- 'GHGinclBiomass' # Greenhouse gas for the analysis to allow flexibility in choice
 costs <- 'realexpend' # Define column used as Costs for calculations
 alpha <- 0.011 # mean Pollution elasticity
-base_year <- 2005 # Base year for parameter
+base_year <- 2001 # Base year for parameter
 
 # Create Data with parameters, where Pollution Elasticity by Scaling and ZEW-method non-estimation
 {

@@ -18,11 +18,13 @@ The input for this script is the data 'dta_parameter.rds' from the script
 {
   dta_parameter <- readRDS("./Data/dta_parameter.rds")
 }
+
 # Define variables for flexibility in Code
 ghg <- 'GHGinclBiomass' # Greenhouse gas for the analysis to allow flexibility in choice
 costs <- 'realexpend' # Define column used as Costs for calculations
 alpha <- 0.011 # mean Pollution elasticity
-base_year <- 2005 # Base year for parameter
+base_year <- 2001 # Base year for parameter
+end_year <- 2016
 
 # Calculate shocks
 {
@@ -33,7 +35,49 @@ base_year <- 2005 # Base year for parameter
            chngfirmEntry = firmEntry/firmEntry[year==base_year],
            chngghg = !!sym(ghg)/(!!sym(ghg))[year==base_year],
            chngwages = wages/wages[year==base_year],
-           envregulation =  (chngfirmEntry*chngwages)/chngghg) %>%
-    select(ISIC_Name, NACE_Name, year, firmEntry, wages, !!sym(ghg),
-           envregulation)
+           envregulation =  ((chngfirmEntry*chngwages)/chngghg)*100) %>%
+    select(ISIC_Name, NACE_Name, year, realoutput, firmEntry, wages, CompEmployees, Employees,!!sym(ghg),
+           envregulation) %>%
+    ungroup()
+}
+
+# Plot for Chemicals, Food, Electrical (ISIC) - 'Landscape' 8.00 x 6.00
+{
+  dta_env_plot <- dta_shocks %>%
+    filter(ISIC_Name %in% c("Chemicals", "Food, beverages, tobacco", "Machinery and equipment") & 
+             year >= base_year & year <= end_year) %>%
+    select(ISIC_Name, year, envregulation) 
+  
+  year_breaks <- seq(from=base_year, to=end_year, by = 2)
+  lplot_env <- ggplot(data = dta_env_plot, aes(x = year, y = envregulation, color = ISIC_Name, group = ISIC_Name)) +
+    geom_line() +
+    labs(#title = "Development of various Greenhouse Gas Emissions",
+      x = "Year",
+      y = paste0("Base ", base_year, " = 100"),
+      color = NULL) +
+    scale_x_continuous(breaks = year_breaks) +
+    theme(legend.position = c(.15, .78))
+  lplot_env
+}
+
+# Table 5: Exporting Chemical Industry values for Environmental Shocks
+{
+  # Create a Table for LATEX format
+  table5 <- xtable(x = dta_shocks %>%
+                     filter(ISIC_Name == "Chemicals" & year >=base_year & year <= end_year) %>%
+                     select(year, realoutput, !!sym(ghg), firmEntry,
+                            CompEmployees, Employees, wages,
+                            envregulation),
+                   digits = c(2,2,0,0,0,0,0,4,0)) # Set number of decimals per column
+  
+  # Change Column Names in LATEX table
+  names(table5) <- c("Year",
+                     "Real Output", "Emissions","Firm Entry",
+                     "Compensation", "Employees", "Wages",
+                     "Environmental Regulation")
+  
+  # Print Parameters table in LATEX format
+  print(table5, 
+        include.rownames=FALSE, 
+        format.args = list(big.mark = ",", decimal.mark = "."))
 }
