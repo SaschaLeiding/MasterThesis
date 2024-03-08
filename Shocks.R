@@ -31,12 +31,11 @@ end_year <- 2016
   dta_shocks <- dta_parameter %>%
     group_by(ISIC_Name, NACE_Name) %>%
     mutate(year = as.integer(year),
-           wages = CompEmployees/Employees,
            chngfirmEntry = firmEntry/firmEntry[year==base_year],
            chngghg = !!sym(ghg)/(!!sym(ghg))[year==base_year],
-           chngwages = wages/wages[year==base_year],
+           chngwages = wage_manuf/wage_manuf[year==base_year],
            envregulation =  ((chngfirmEntry*chngwages)/chngghg)*100) %>%
-    select(ISIC_Name, NACE_Name, year, realoutput, firmEntry, wages, CompEmployees, Employees,!!sym(ghg),
+    select(ISIC_Name, NACE_Name, year, realoutput, firmEntry, wage_manuf, CompEmployees, Employees,!!sym(ghg),
            envregulation) %>%
     ungroup()
 }
@@ -66,7 +65,7 @@ end_year <- 2016
   table5 <- xtable(x = dta_shocks %>%
                      filter(ISIC_Name == "Chemicals" & year >=base_year & year <= end_year) %>%
                      select(year, realoutput, !!sym(ghg), firmEntry,
-                            CompEmployees, Employees, wages,
+                            CompEmployees, Employees, wage_manuf,
                             envregulation),
                    digits = c(2,2,0,0,0,0,0,4,0)) # Set number of decimals per column
   

@@ -338,7 +338,7 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
   # Note: Not dropping NA because all 69 grouping does not have values for individual Fluorinated gases but its sum in CO2-equivalents
 }
 
-# Calculate Emission Intensity, real Output and real Output Intensity
+# Calculate Variables: Emission Intensity, real Output and real Output Intensity
 {
   dta_decomp <- dta_decomp %>% 
     group_by(classif) %>% 
@@ -347,7 +347,8 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
            realoutput = voutput / (PPI/100),
            expend = interConsumption + CompEmployees,
            realexpend = expend / (PPI/100),
-           realouput_intensity = (realoutput * (!!sym(varname_ghgintensity))))
+           realouput_intensity = (realoutput * (!!sym(varname_ghgintensity))),
+           wage = CompEmployees/Employees)
   
   attr(dta_decomp$realoutput, 'label') <- 'm DKK'
   attr(dta_decomp$expend, 'label') <- 'm DKK'
@@ -376,7 +377,8 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
            ISIC_Name = NA,
            classsystem = 'NACE') %>%
     group_by(year) %>%
-    mutate(output_share = realoutput/(sum(realoutput)/2)) # divide by 2 because the sum includes each idniv. and the total together
+    mutate(output_share = realoutput/(sum(realoutput)/2),
+           wage_manuf = CompEmployees[NACE_Name == 'Total Manufacturing'] / Employees[NACE_Name ==  'Total Manufacturing']) # divide by 2 because the sum includes each idniv. and the total together
 }
 
 # Create Shapiro&Walker(ISIC)-classification data
@@ -400,7 +402,8 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
            NACE_Name = NA,
            classsystem = 'ISIC') %>%
     group_by(year) %>%
-    mutate(output_share = realoutput/(sum(realoutput)/2)) # divide by 2 because the sum includes each idniv. and the total together
+    mutate(output_share = realoutput/(sum(realoutput)/2),
+           wage_manuf = CompEmployees[ISIC_Name == 'Total Manufacturing'] / Employees[ISIC_Name ==  'Total Manufacturing']) # divide by 2 because the sum includes each idniv. and the total together
   
 }
 
