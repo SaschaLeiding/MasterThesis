@@ -50,6 +50,19 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
   ppi_mapp117 <- read_xlsx("./Data/Mapping_PPI_117grouping.xlsx", range = "B3:G122")
   ppi_mapp69 <- read_xlsx("./Data/Mapping_PPI_69grouping.xlsx", range = "B2:C73")
   
+  # Loading International data
+  # Load IEA-Emission Data in million tonnes CO2
+  IEA_emissions <- read_xlsx("./Data/IEA_Emissions.xlsx", range = "A4:AQ933")
+  
+  # Load INDSTAT Data in USD
+  INDSTAT_1 <- read_xlsx("./Data/INDSTAT_WorldManuf_ISIC.xlsx", sheet = "EmplEstabl", range = "A1:M97980")
+  INDSTAT_2 <- read_xlsx("./Data/INDSTAT_WorldManuf_ISIC.xlsx", sheet = "OutpGFI", range = "A1:M83882")
+  INDSTAT_3 <- read_xlsx("./Data/INDSTAT_WorldManuf_ISIC.xlsx", sheet = "WagesVA", range = "A1:M99504")
+  
+  # Load OECD Exchange rate from 1,000 USD
+  OECDFX <- read_xlsx("./Data/OECD_ExchangeRate.xlsx", range = "C3:Z67")
+  
+  
   ember <- read.csv("./Data/EMBER_ElectricityData.csv")
 }
 
@@ -410,6 +423,20 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
 # Combine NACE and ISIC data
 {
   dta_analysis <- dta_NACE %>% full_join(dta_ISIC)
+}
+
+# Merge International Data
+{
+  IEA_emissions <- IEA_emissions[-1,]
+  
+  dta_inter <- IEA_emissions %>% # Adding International Emission Data
+    rename('country' = 'Time',
+           classif = ...2) %>%
+    select(-starts_with("..")) %>%
+    fill(country) %>%
+    mutate(classif = str_remove(classif, " \\[.*"))
+  
+  INDSTAT <- rbind(INDSTAT_1, INDSTAT_2, INDSTAT_3)
 }
 
 # Save the Data
