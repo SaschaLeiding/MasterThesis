@@ -488,23 +488,59 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
                          "Motor vehicles, trailers, semi-trailers",
                          "Other transport equipment",
                          "Medical, precision and optical instruments")
-    
-    dta_internat <- data.frame(classif_ISIC, classif_IEA, classif_INDSTAT)
   }
   
-  IEA_emissions <- IEA_emissions[-1,]
-  INDSTAT <- rbind(INDSTAT_1, INDSTAT_2, INDSTAT_3)
+  IEA_emissions <- IEA_emissions[-1,] 
   
-  dta_inter <- IEA_emissions %>% # Adding International Emission Data
-    rename('country' = 'Time',
-           classif = ...2) %>%
-    select(-starts_with("..")) %>%
-    fill(country) %>%
-    mutate(classif = str_remove(classif, " \\[.*"))
+  # Merge Data
+  dta_internat <- rbind(INDSTAT_1, INDSTAT_2, INDSTAT_3) %>% # Create Baseline DF with INDSTAT, as most comprehensive
+    select('Country Description', Year, 'ISIC Description', 'Table Description...2', Value) %>%
+    rename(country = 'Country Description',
+           year = Year,
+           INDSTAT_Name = 'ISIC Description') %>%
+    pivot_wider(names_from = 'Table Description...2', values_from = Value) %>%
+    
+    # ADD classifications to match with other data
+    left_join((data.frame(classif_ISIC, classif_IEA, classif_INDSTAT)),
+              join_by(INDSTAT_Name== classif_INDSTAT)) %>%
+    
+    # Add Emission data
+    left_join((IEA_emissions %>% 
+                rename('country' = 'Time',
+                       classif = ...2) %>%
+                select(-starts_with("..")) %>%
+                fill(country) %>%
+                mutate(classif = str_remove(classif, " \\[.*")) %>%
+                pivot_longer(cols = starts_with("20"),
+                             names_to = 'year',
+                             values_to = 'Emissions') %>% # in Million tonnes CO2
+                mutate(Emissions = Emissions* 1000)),
+              join_by(classif_IEA == classif,
+                      year == year,
+                      country == country)) %>%
+    rename(Firms = Establishments,
+           grossFixCap = 'Gross fixed capital formation',
+           totalwages = 'Wages and salaries',
+           VA = 'Value added') %>%
+    mutate(Firms = as.numeric(Firms),
+           Employees = as.numeric(Employees),
+           Output = as.numeric(Output),
+           grossFixCap = as.numeric(grossFixCap),
+           totalwages = as.numeric(totalwages),
+           VA = as.numeric(VA),
+           wage = totalwages/Employees) %>%
+    group_by(country,year) %>%
+    mutate(wage_manuf = if (any(INDSTAT_Name == 'Total manufacturing')) {
+      wage[INDSTAT_Name == 'Total manufacturing']
+    } else {
+      NA_real_ # This ensures that the NA has the same type as wage
+    }) %>%
+    ungroup()
 }
 
 # Save the Data
 {
   saveRDS(dta_decomp, file = "./Data/dta_full.rds")
   saveRDS(dta_analysis, file = "./Data/dta_analysis.rds")
+  saveRDS(dta_internat, file = "./Data/dta_internat.rds")
 }
