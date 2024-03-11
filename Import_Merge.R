@@ -347,8 +347,14 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
     full_join(dta_total) %>%
     filter(!(year %in% c(2020, 2021,2022))) %>% # Disselect the entries of the years 2020-2022
     distinct()
-  #dta_decomp <- na.omit(dta_decomp) # Drop all NA
   # Note: Not dropping NA because all 69 grouping does not have values for individual Fluorinated gases but its sum in CO2-equivalents
+  
+  rm(emissions)
+  rm(emissionsEqui)
+  rm(output)
+  rm(business)
+  rm(ppi_trans)
+  rm(cost_ener_trans)
 }
 
 # Calculate Variables: Emission Intensity, real Output and real Output Intensity
@@ -427,7 +433,67 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
 
 # Merge International Data
 {
+  # Classification Match
+  {
+    classif_ISIC <- c("Total Manufacturing", 
+                      "Food, beverages, tobacco", "Food, beverages, tobacco",
+                      "Textiles, apparel, fur, leather", "Textiles, apparel, fur, leather", "Textiles, apparel, fur, leather",
+                      "Paper and publishing", "Paper and publishing",
+                      "Chemicals", 
+                      "Other non-metallic minerals",
+                      "Machinery and equipment", "Machinery and equipment", "Machinery and equipment",
+                      "Office, computing, electrical",
+                      "Furniture, other, recycling", "Furniture, other, recycling",
+                      "Wood products",
+                      "Coke, refined petroleum, fuels",
+                      "Rubber and plastics",
+                      "Basic metals",                  
+                      "Fabricated metals",
+                      "Motor vehicles, trailers",
+                      "Other transport equipment",
+                      "Medical, precision, and optical")
+    
+    classif_IEA <- c("Manufacturing",
+                     "Food and tobacco", "Food and tobacco",
+                     "Textiles and leather", "Textiles and leather", "Textiles and leather",
+                     "Paper, pulp and printing", "Paper, pulp and printing",
+                     "Chemicals and chemical products",
+                     "Non-metallic minerals",
+                     "Machinery", "Machinery", "Machinery",
+                     "Machinery",
+                     "Other manufacturing", "Other manufacturing",
+                     "Wood and wood products",
+                     "Memo: Coke and refined petroleum products",
+                     "Rubber and plastic",
+                     "Basic metals",
+                     "Machinery",
+                     "Transport equipment",
+                     "Transport equipment",
+                     "Other manufacturing")
+    
+    classif_INDSTAT <- c("Total manufacturing",
+                         "Food and beverages", "Tobacco products",
+                         "Textiles", "Wearing apparel, fur", "Leather, leather products and footwear",
+                         "Printing and publishing", "Paper and paper products",
+                         "Chemicals and chemical products",
+                         "Non-metallic mineral products",
+                         "Machinery and equipment n.e.c.", "Electrical machinery and apparatus", "Radio,television and communication equipment",
+                         "Office, accounting and computing machinery",
+                         "Furniture; manufacturing n.e.c.", "Recycling",
+                         "Wood products (excl. furniture)",
+                         "Coke,refined petroleum products,nuclear fuel",
+                         "Rubber and plastics products",
+                         "Basic metals",
+                         "Fabricated metal products",
+                         "Motor vehicles, trailers, semi-trailers",
+                         "Other transport equipment",
+                         "Medical, precision and optical instruments")
+    
+    dta_internat <- data.frame(classif_ISIC, classif_IEA, classif_INDSTAT)
+  }
+  
   IEA_emissions <- IEA_emissions[-1,]
+  INDSTAT <- rbind(INDSTAT_1, INDSTAT_2, INDSTAT_3)
   
   dta_inter <- IEA_emissions %>% # Adding International Emission Data
     rename('country' = 'Time',
@@ -435,8 +501,6 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
     select(-starts_with("..")) %>%
     fill(country) %>%
     mutate(classif = str_remove(classif, " \\[.*"))
-  
-  INDSTAT <- rbind(INDSTAT_1, INDSTAT_2, INDSTAT_3)
 }
 
 # Save the Data
