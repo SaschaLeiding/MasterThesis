@@ -490,34 +490,58 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
                          "Medical, precision and optical instruments")
   }
   
+  # Country codes for IEA
+  {
+    country_IEA <- c("Australia", "Austria", "Belgium", "Canada", "Czech Republic", 
+                 "Denmark", "Estonia", "Finland", "France", "Germany", "Greece", 
+                 "Hungary", "Ireland", "Italy", "Japan", "Korea", "Lithuania", 
+                 "Luxembourg", "Mexico", "Netherlands", "New Zealand", "Norway", 
+                 "Poland", "Portugal", "Slovak Republic", "Spain", "Sweden", 
+                 "Switzerland", "Republic of Türkiye", "United Kingdom", 
+                 "United States", "Argentina", "Brazil", "Morocco", "South Africa", 
+                 "Ukraine", "Chile", "Latvia", "Albania", "Armenia", "Azerbaijan", 
+                 "Belarus", "Bosnia and Herzegovina", "Bulgaria", "Croatia", 
+                 "Cyprus", "Georgia", "Kazakhstan", "Kosovo", "Kyrgyzstan", 
+                 "Republic of North Macedonia", "Malta", "Republic of Moldova", 
+                 "Romania", "Serbia", "Slovenia", "Uruguay", "Uzbekistan")
+    countrycode_IEAINDSTAT <- c(036, 040, 056, 124, 203, 208, 233, 246, 250, 276, 300,
+                             348, 372, 380, 392, 410, 440, 442, 484, 528, 554, 
+                             578, 616, 620, 703, 724, 752, 756, 792, 826, 840,
+                             032, 076, 504, 710, 804, 152, 428, 008, 051, 031, 112, 070,
+                             100, 191, 196, 268, 398, 412, 417, 807, 470, 498, 
+                             642, 688, 705, 858, 860)
+    
+    #country_OECD <- c("Albania", "Argentina", "Australia", "Austria", "Belgium", 
+    #                  "Brazil", "Bulgaria", "Cameroon", "Canada", "Chile", 
+    #                  "China (People's Republic of)", "Colombia", "Costa Rica", 
+    #                  "Croatia", "Cyprus", "Czechia", "Denmark", "Estonia", 
+    #                  "Euro area (19 countries)", "European Union (27 countries, 2020)", 
+    #                  "Finland", "France", "Georgia", "Germany", "Greece", 
+    #                  "Hong Kong, China", "Hungary", "Iceland", "India", "Indonesia", 
+    #                  "Ireland", "Israel", "Italy", "Japan", "Korea", "Latvia", 
+    #                  "Lithuania", "Luxembourg", "Madagascar", "Malta", "Mexico", 
+    #                  "Morocco", "Netherlands", "New Zealand", "North Macedonia", 
+    #                  "Norway", "Poland", "Portugal", "Romania", "Russia", 
+    #                  "Saudi Arabia", "Senegal", "Serbia", "Singapore", "Slovak Republic", 
+    #                  "Slovenia", "South Africa", "Spain", "Sweden", "Switzerland", 
+    #                  "Türkiye", "United Kingdom", "United States", "Zambia")
+    #countrycode_OECDINDSTAT <- c(08, 032, 036, 040, 056, 076, 100, 120, 124, 152, 156, 170, 
+    #                      188, 191, 196, 203, 208, 233, NA, NA, 246, 250, 268, 
+    #                      276, 300, 344, 348, 352, 356, 360, 372, 376, 380, 392, 
+    #                      410, 428, 440, 442, 450, 470, 484, 504, 528, 554, 807, 
+    #                      578, 616, 620, 642, 643, 682, 686, 688, 702, 703, 705, 
+    #                      710, 724, 752, 756, 792, 826, 840, 894)
+  }
   IEA_emissions <- IEA_emissions[-1,] 
   
   # Merge Data
   dta_internat <- rbind(INDSTAT_1, INDSTAT_2, INDSTAT_3) %>% # Create Baseline DF with INDSTAT, as most comprehensive
-    select('Country Description', Year, 'ISIC Description', 'Table Description...2', Value) %>%
+    select('Country Description', 'Country Code', Year, 'ISIC Description', 'Table Description...2', Value) %>%
     rename(country = 'Country Description',
+           countrycode_INDSTAT = 'Country Code',
            year = Year,
            INDSTAT_Name = 'ISIC Description') %>%
     pivot_wider(names_from = 'Table Description...2', values_from = Value) %>%
-    
-    # ADD classifications to match with other data
-    left_join((data.frame(classif_ISIC, classif_IEA, classif_INDSTAT)),
-              join_by(INDSTAT_Name== classif_INDSTAT)) %>%
-    
-    # Add Emission data
-    left_join((IEA_emissions %>% 
-                rename('country' = 'Time',
-                       classif = ...2) %>%
-                select(-starts_with("..")) %>%
-                fill(country) %>%
-                mutate(classif = str_remove(classif, " \\[.*")) %>%
-                pivot_longer(cols = starts_with("20"),
-                             names_to = 'year',
-                             values_to = 'Emissions') %>% # in Million tonnes CO2
-                mutate(Emissions = Emissions* 1000)),
-              join_by(classif_IEA == classif,
-                      year == year,
-                      country == country)) %>%
     rename(Firms = Establishments,
            grossFixCap = 'Gross fixed capital formation',
            totalwages = 'Wages and salaries',
@@ -535,7 +559,42 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
     } else {
       NA_real_ # This ensures that the NA has the same type as wage
     }) %>%
-    ungroup()
+    ungroup() %>%
+    
+    
+    # ADD classifications to match with other data
+    left_join((data.frame(classif_ISIC, classif_IEA, classif_INDSTAT)),
+              join_by(INDSTAT_Name== classif_INDSTAT)) %>%
+    
+    # Add Emission data
+    left_join((IEA_emissions %>%
+                rename('country' = 'Time',
+                       classif = ...2) %>%
+                select(-starts_with("..")) %>%
+                fill(country) %>%
+                mutate(classif = str_remove(classif, " \\[.*")) %>%
+                pivot_longer(cols = starts_with("20"),
+                             names_to = 'year',
+                             values_to = 'Emissions') %>% # in Million tonnes CO2
+                mutate(Emissions = Emissions* 1000) %>%
+                left_join(as.data.frame(cbind(country_IEA, countrycode_IEAINDSTAT)),
+                          join_by(country == country_IEA)) %>%
+                 select(!country)),
+              join_by(classif_IEA == classif,
+                      year == year,
+                      countrycode_INDSTAT == countrycode_IEAINDSTAT)) %>%
+
+    # Add OECD Exchange rate to USD
+    left_join((OECDFX %>%
+                 filter(Location %in% c("Denmark", "Germany")) %>%
+                 pivot_longer(cols = starts_with("20"),
+                              names_to = 'year',
+                              values_to = 'FXrateUSD') %>%
+                 mutate(FXrateUSD = as.numeric(FXrateUSD)/1000) %>%
+                 pivot_wider(names_from = Location,
+                             values_from = FXrateUSD)%>%
+                 rename(DKKUSD = Denmark,
+                        EURUSD = Germany)), join_by(year == year))
 }
 
 # Save the Data
