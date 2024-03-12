@@ -32,6 +32,9 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
   emissionsEqui69_01 <- read_xlsx("./Data/DK_EmissionsEquivalents_69grouping_01.xlsx", range = "A3:G1658")
   emissionsEqui69_02 <- read_xlsx("./Data/DK_EmissionsEquivalents_69grouping_02.xlsx", range = "A3:D1658")
   
+  # Loading DRIVHUS2: CO2 in direct and indirect emissions by industry, time and type of emission
+  emissionsEqui_05 <- read_xlsx("./Data/DK_CO2_117grouping.xlsx", range = "A3:E2544")
+  
   # Loading NABO: Production and generation of income by price unity, transaction, industry and time
   output_01 <- read_xlsx("./Data/DK_Production_117grouping_01.xlsx", range = "A4:F2384")
   output_02 <- read_xlsx("./Data/DK_Production_117grouping_02.xlsx", range = "A4:E2384")
@@ -68,7 +71,7 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
 
 # Define variables for code flexibility
 {
-  ghg <- 'GHGinclBiomass' # Greenhouse gas for the analysis to allow flexibility in choice
+  ghg <- 'CO2Total' # Greenhouse gas for the analysis to allow flexibility in choice
   varname_ghgintensity <- paste0(ghg, "_intensity")
   base_year <- 2005
 }
@@ -150,6 +153,7 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
                                emissionsEqui_02 = emissionsEqui_02,
                                emissionsEqui_03 = emissionsEqui_03,
                                emissionsEqui_04 = emissionsEqui_04,
+                               emissionsEqui_05 = emissionsEqui_05,
                                emissionsEqui69_01 = emissionsEqui69_01,
                                emissionsEqui69_02 = emissionsEqui69_02)
     
@@ -164,7 +168,7 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
         mutate(across(-(1:2), .fns=as.numeric)) # Transform Columns except 1 and 2 into numeric
     }
   }
-  
+
   # Create unique Emissions Dataset
   {
     emissionsEqui <- rbind((emissions_datalist[["emissionsEqui_01"]] %>% 
@@ -172,7 +176,8 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
       left_join(emissions_datalist[["emissionsEqui_03"]], join_by(classif == classif, year == year)) %>%
       left_join(emissions_datalist[["emissionsEqui_04"]], join_by(classif == classif, year == year))),
       (emissions_datalist[["emissionsEqui69_01"]] %>%
-      left_join(emissions_datalist[["emissionsEqui69_02"]], join_by(classif == classif, year == year))))
+      left_join(emissions_datalist[["emissionsEqui69_02"]], join_by(classif == classif, year == year))))%>%
+      left_join(emissions_datalist[["emissionsEqui_05"]], join_by(classif == classif, year == year))
   }
   
   # Remove unnecessary Data
@@ -181,16 +186,19 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
     rm(emissionsEqui_02)
     rm(emissionsEqui_03)
     rm(emissionsEqui_04)
+    rm(emissionsEqui_05)
     rm(emissionsEqui69_01)
     rm(emissionsEqui69_02)
     rm(dataset_name)
+    rm(emissions_datalist)
   }
   
   # Rename Columns and Subheaders of Columns
   {
     # Create a list with new Variable Names
     emissions_col_names <- c("classif", "year", "GHGexclBiomass", "GHGinclBiomass", 
-                             "CO2exclBiomass", "CO2fromBiomass", "N2O_Equi", "CH4_Equi", "Fgases_Equi")
+                             "CO2exclBiomass", "CO2fromBiomass", "N2O_Equi", "CH4_Equi", "Fgases_Equi",
+                             "C02Direct", "CO2ElectricityHeat", "CO2Total")
     # Create list with attributes
     emissions_col_attr <-  colnames(emissionsEqui)
     
@@ -461,7 +469,7 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
                      "Non-metallic minerals",
                      "Machinery", "Machinery", "Machinery",
                      "Machinery",
-                     "Other manufacturing", "Other manufacturing",
+                     "Non-specified manufacturing", "Other manufacturing",
                      "Wood and wood products",
                      "Memo: Coke and refined petroleum products",
                      "Rubber and plastic",
@@ -532,7 +540,24 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
     #                      578, 616, 620, 642, 643, 682, 686, 688, 702, 703, 705, 
     #                      710, 724, 752, 756, 792, 826, 840, 894)
   }
-  IEA_emissions <- IEA_emissions[-1,] 
+  IEA_emissions <- IEA_emissions[-1,]
+  
+  # Calculate emissions for Total Manufacturing because in Base ISIC 19 (manuf of Fuel) is excluded
+  {
+    dta_IEAmanuf <- IEA_emissions%>%
+      rename('country' = 'Time',
+             classif = ...2) %>%
+      select(-starts_with("..")) %>%
+      fill(country) %>%
+      mutate(classif = str_remove(classif, " \\[.*")) %>%
+      pivot_longer(cols = starts_with("20"),
+                   names_to = 'year',
+                   values_to = 'Emissions') %>% # in Million tonnes CO2
+      mutate(Emissions = Emissions* 1000) %>%
+      filter(!(classif %in% c('Manufacturing', 'Ferrous metals', 'Non-ferrous metals'))) %>%
+      group_by(country, year) %>%
+      summarise(emission = sum(Emissions, na.rm = TRUE), .groups = "keep")
+  }
   
   # Merge Data
   dta_internat <- rbind(INDSTAT_1, INDSTAT_2, INDSTAT_3) %>% # Create Baseline DF with INDSTAT, as most comprehensive
@@ -560,7 +585,6 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
       NA_real_ # This ensures that the NA has the same type as wage
     }) %>%
     ungroup() %>%
-    
     
     # ADD classifications to match with other data
     left_join((data.frame(classif_ISIC, classif_IEA, classif_INDSTAT)),
