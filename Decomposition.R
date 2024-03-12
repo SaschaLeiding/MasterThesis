@@ -28,7 +28,7 @@ Print Plots as PDF in 'Landscape' 8.00 x 6.00
 }
 
 # Define variables for flexibility in Code
-ghg <- 'GHGinclBiomass' # Greenhouse gas for the analysis to allow flexibility in choice
+ghg <- 'CO2Total' # Greenhouse gas for the analysis to allow flexibility in choice
 base_year <- 2001 # Base year for the normalizing the 3 effects
 end_year <- 2016 # End year to define time sequence under observation
 
@@ -54,7 +54,7 @@ end_year <- 2016 # End year to define time sequence under observation
 {
   dta_emissions_plot <- dta_decomp %>% 
     filter(ISIC_Name == 'Total Manufacturing') %>%
-    select(year, realoutput, GHGinclBiomass, CO2inclBiomass, SO2, NOx, PM10, PM2.5, NMVOC) %>%
+    select(year, realoutput, GHGinclBiomass, CO2Total, SO2, NOx, PM10, PM2.5, NMVOC) %>%
     pivot_longer(cols = realoutput:NMVOC, values_to = 'Value', names_to = 'Category') %>%
     group_by(Category) %>%
     mutate(normalized_Value = Value/ Value[year == base_year] * 100) %>%
@@ -68,7 +68,7 @@ end_year <- 2016 # End year to define time sequence under observation
       color = NULL) +
     scale_colour_manual(values = c("#FF0000", "#CC6633", "#669900", "#CC3399", "#330099",
                                    "#339999", "#00FFFF", "orange"),
-                        labels = c("CO² incl. Biomass", "GHG incl. Biomass",
+                        labels = c("CO² Total", "GHG incl. Biomass",
                                "NVMOC", "Nitrogen Oxides", "Particular Matter < 10",
                                "Particular Matter < 2.5", "Real Output", "Sulphur Dioxide")) +
     theme(legend.position = c(.15, .22))
@@ -191,7 +191,7 @@ Composition for all negative
     select(ISIC_Name, !!sym(ghg), output_share, realoutput, realexpend, realcostEnergy, ISIC_Code) %>%
     mutate(across(realoutput:realcostEnergy, ~round(.x, digits = 0)),
            output_share = output_share*100) %>%
-    rename("Emissions" = "GHGinclBiomass",
+    rename("Emissions" = paste0(ghg),
            "Output Share" = "output_share",
            "Real Output" = "realoutput",
            "Real Costs" = "realexpend",
@@ -204,7 +204,7 @@ Composition for all negative
                 #mutate_if(is.numeric, ~round(.x, digits = 0)) %>%
                 group_by(ISIC_Name) %>%
                 mutate_if(is.numeric, ~ round(((lead(.x)-.x) / .x)*100, digits = 1)) %>%
-                rename("Emissions" = "GHGinclBiomass",
+                rename("Emissions" = paste0(ghg),
                        "Output Share" = "output_share",
                        "Real Output" = "realoutput",
                        "Real Costs" = "realexpend",

@@ -33,7 +33,7 @@ Attention: Variable 'ghg' must be the same in all Scripts
 }
 
 # Define variables for flexibility in Code
-ghg <- 'GHGinclBiomass' # Greenhouse gas for the analysis to allow flexibility in choice
+ghg <- 'CO2Total' # Greenhouse gas for the analysis to allow flexibility in choice
 costs <- 'realexpend' # Define column used as Costs for calculations
 alpha <- 0.011 # mean Pollution elasticity
 base_year <- 2001 # Base year for parameter
