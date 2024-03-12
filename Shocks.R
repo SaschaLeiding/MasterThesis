@@ -17,6 +17,7 @@ The input for this script is the data 'dta_parameter.rds' from the script
 # Load Data
 {
   dta_parameter <- readRDS("./Data/dta_parameter.rds")
+  dta_internat <- readRDS("./Data/dta_internat.rds")
 }
 
 # Define variables for flexibility in Code

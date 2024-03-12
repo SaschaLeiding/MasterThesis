@@ -36,133 +36,236 @@ Attention: Variable 'ghg' must be the same in all Scripts
 ghg <- 'CO2Total' # Greenhouse gas for the analysis to allow flexibility in choice
 costs <- 'realexpend' # Define column used as Costs for calculations
 alpha <- 0.011 # mean Pollution elasticity
-base_year <- 2001 # Base year for parameter
+base_year <- 2005 # Base year for parameter
+end_year <- 2016 # End year to define time sequence under observation
 
-# Create Data with parameters, where Pollution Elasticity by Scaling and ZEW-method non-estimation
+# Elasticity Estimation for by each sector
 {
-  "
+  # Create Data with parameters, where Pollution Elasticity by Scaling and ZEW-method non-estimation
+  {
+    "
   Note: Greenhouse gases are in 1,000 tonnes, whereas output and costs data is in million DKK
   "
-  dta_inter <- dta_analysis %>%
-    filter(NACE_Name != 'Total Manufacturing' | ISIC_Name != 'Total Manufacturing') %>%
+    dta_inter <- dta_analysis %>%
+      filter(NACE_Name != 'Total Manufacturing' | ISIC_Name != 'Total Manufacturing') %>%
+      filter(year >= base_year & year <= end_year) %>%
+      
+      # ISIC: Calculate Parameters with Shapiro and Walker(2018) Estimation method
+      group_by(year, classsystem) %>%
+      mutate(tonsPollCost = (!!sym(ghg)*1000)/!!sym(costs), # Calculating tons pollution per dollar costs
+             meantonsPollCost = sum(tonsPollCost, na.rm=TRUE)/ifelse(classsystem=='NACE', 11, 16),
+             pollutionelasticityISIC = alpha * (tonsPollCost/meantonsPollCost), # Calculating the Pollution elasticity with the mean alpha defined prior
+             inputshare = !!sym(costs)/realoutput, # Calculating the input share with costs defined prior
+             elasticitysubstitution = 1/(1-inputshare)) %>% # Calculating the Elasticity of Substitution by taking the ratio of the value of shipments to production costs, hence relying on assumption that firms engage in monopolistic competition
+      ungroup() %>%
+      
+      # NACE_1: Calculate Pollution Elasticity with ZEW (2023) Estimation Method
+      group_by(NACE_Name, ISIC_Name) %>%
+      arrange(year, .by_group = TRUE) %>%
+      mutate(lnrealoutput = log(realoutput),
+             lnrealcostEnergy = log(realcostEnergy),
+             lnghg = log(!!sym(ghg)),
+             energyshare = realcostEnergy/realoutput,
+             lnenergyshare = log(energyshare),
+             
+             chngOutputEnergyNACE = (lead(lnrealcostEnergy) - lnrealcostEnergy)/(lead(energyshare) - energyshare),
+             elasticityOutputEnergyNACE1 = (1/chngOutputEnergyNACE) * (lnrealcostEnergy/energyshare),
+             
+             chngEmissionEnergyNACE = (lead(lnrealcostEnergy) - lnrealcostEnergy)/(lead(lnghg) - !lnghg),
+             elasticityEmissionEnergyNACE1 = (1/chngEmissionEnergyNACE) * (lnrealcostEnergy/lnghg),
+             pollutionelasticityNACE1 = elasticityOutputEnergyNACE1/elasticityEmissionEnergyNACE1) %>%
+      ungroup()
     
-    # ISIC: Calculate Parameters with Shapiro and Walker(2018) Estimation method
-    group_by(year, classsystem) %>%
-    mutate(tonsPollCost = (!!sym(ghg)*1000)/!!sym(costs), # Calculating tons pollution per dollar costs
-           meantonsPollCost = sum(tonsPollCost, na.rm=TRUE)/ifelse(classsystem=='NACE', 11, 16),
-           pollutionelasticityISIC = alpha * (tonsPollCost/meantonsPollCost), # Calculating the Pollution elasticity with the mean alpha defined prior
-           inputshare = !!sym(costs)/realoutput, # Calculating the input share with costs defined prior
-           elasticitysubstitution = 1/(1-inputshare)) %>% # Calculating the Elasticity of Substitution by taking the ratio of the value of shipments to production costs, hence relying on assumption that firms engage in monopolistic competition
-    ungroup() %>%
+    # Test whether pollution Elasticity has been correctly calculated
+    mean((dta_inter %>% filter(year == base_year & classsystem=='NACE'))$pollutionelasticityISIC)
+    mean((dta_inter %>% filter(year == base_year & classsystem=='ISIC'))$pollutionelasticityISIC)
     
-    # NACE_1: Calculate Pollution Elasticity with ZEW (2023) Estimation Method
-    group_by(NACE_Name, ISIC_Name) %>%
-    arrange(year, .by_group = TRUE) %>%
-    mutate(lnrealoutput = log(realoutput),
-           lnrealcostEnergy = log(realcostEnergy),
-           lnghg = log(!!sym(ghg)),
-           energyshare = realcostEnergy/realoutput,
-           lnenergyshare = log(energyshare),
-           
-           chngOutputEnergyNACE = (lead(lnrealcostEnergy) - lnrealcostEnergy)/(lead(energyshare) - energyshare),
-           elasticityOutputEnergyNACE1 = (1/chngOutputEnergyNACE) * (lnrealcostEnergy/energyshare),
-           
-           chngEmissionEnergyNACE = (lead(lnrealcostEnergy) - lnrealcostEnergy)/(lead(lnghg) - !lnghg),
-           elasticityEmissionEnergyNACE1 = (1/chngEmissionEnergyNACE) * (lnrealcostEnergy/lnghg),
-           pollutionelasticityNACE1 = elasticityOutputEnergyNACE1/elasticityEmissionEnergyNACE1) %>%
-  ungroup()
+    # Add Label to column 'tonspollcost'
+    attr(dta_inter$tonsPollCost, 'label') <- 'Tons pollution per 1,000,000 DKK'
+  }
   
-  # Test whether pollution Elasticity has been correctly calculated
-  mean((dta_inter %>% filter(year == base_year & classsystem=='NACE'))$pollutionelasticityISIC)
-  mean((dta_inter %>% filter(year == base_year & classsystem=='ISIC'))$pollutionelasticityISIC)
-  
-  # Add Label to column 'tonspollcost'
-  attr(dta_inter$tonsPollCost, 'label') <- 'Tons pollution per 1,000,000 DKK'
+  # Estimating Pollution Elasticity (ZEW-method)
+  {
+    # Create Dataframe
+    {
+      dta_elast <- data.frame(NACE_Name = character(0),
+                              ISIC_Name = character(0),
+                              
+                              elasticityOutputEnergyNACE2 = numeric(0), 
+                              elasticityEmissionEnergyNACE2 = numeric(0),
+                              pollutionelasticityNACE2 = numeric(0),
+                              elasticityOutputEnergyNACE3 = numeric(0),
+                              pollutionelasticityNACE3 = numeric(0),
+                              
+                              elasticityOutputEnergyISIC2 = numeric(0), 
+                              elasticityEmissionEnergyISIC2 = numeric(0),
+                              pollutionelasticityISIC2 = numeric(0),
+                              elasticityOutputEnergyISIC3 = numeric(0),
+                              pollutionelasticityISIC3 = numeric(0))
+    }
+    
+    # NACE: Estimation Loop for Pollution elasticity 
+    for(i in na.omit(unique(dta_inter$NACE_Name))){
+      dta_model <- dta_inter %>%
+        filter(NACE_Name == i & !is.na(NACE_Name) & year <= end_year)
+      
+      # Run Estimations
+      model_test_OutputEnergyNACE2 <- lm(lnrealoutput ~ lnrealcostEnergy, data = dta_model)
+      model_test_OutputEnergyNACE3 <- lm(energyshare ~ lnrealcostEnergy, data = dta_model)
+      model_test_EmissionsEnergyNACE2 <- lm(lnghg ~ lnrealcostEnergy, data = dta_model)
+      
+      # Extract Beta 1 from Models
+      elasticityOutputEnergyNACE2 <- coef(model_test_OutputEnergyNACE2)[2]
+      elasticityOutputEnergyNACE3 <- coef(model_test_OutputEnergyNACE3)[2]
+      elasticityEmissionEnergyNACE2 <- coef(model_test_EmissionsEnergyNACE2)[2]
+      
+      # Calculate Pollution Elasticity from estimated elasticities (beta 1)
+      pollutionelasticityNACE2 = elasticityOutputEnergyNACE2/elasticityEmissionEnergyNACE2
+      pollutionelasticityNACE3 = elasticityOutputEnergyNACE3/elasticityEmissionEnergyNACE2
+      
+      # Add estimations to Model
+      dta_elast <- dta_elast %>%
+        add_row(NACE_Name = i,
+                elasticityOutputEnergyNACE2 = elasticityOutputEnergyNACE2,
+                elasticityOutputEnergyNACE3 = elasticityOutputEnergyNACE3,
+                elasticityEmissionEnergyNACE2 = elasticityEmissionEnergyNACE2,
+                pollutionelasticityNACE2 = pollutionelasticityNACE2,
+                pollutionelasticityNACE3 = pollutionelasticityNACE3)
+    }
+    
+    # ISIC: Estimation Loop for Pollution elasticity 
+    for(i in na.omit(unique(dta_inter$ISIC_Name))){
+      dta_model <- dta_inter %>%
+        filter(ISIC_Name == i & !is.na(ISIC_Name) & year <= end_year)
+      
+      # Run Estimations
+      model_test_OutputEnergyISIC2 <- lm(lnrealoutput ~ lnrealcostEnergy, data = dta_model)
+      model_test_OutputEnergyISIC3 <- lm(energyshare ~ lnrealcostEnergy, data = dta_model)
+      model_test_EmissionsEnergyISIC2 <- lm(lnghg ~ lnrealcostEnergy, data = dta_model)
+      
+      # Extract Beta 1 from Models
+      elasticityOutputEnergyISIC2 <- coef(model_test_OutputEnergyISIC2)[2]
+      elasticityOutputEnergyISIC3 <- coef(model_test_OutputEnergyISIC3)[2]
+      elasticityEmissionEnergyISIC2 <- coef(model_test_EmissionsEnergyISIC2)[2]
+      
+      # Calculate Pollution Elasticity from estimated elasticities (beta 1)
+      pollutionelasticityISIC2 = elasticityOutputEnergyISIC2/elasticityEmissionEnergyISIC2
+      pollutionelasticityISIC3 = elasticityOutputEnergyISIC3/elasticityEmissionEnergyISIC2
+      
+      # Add estimations to Model
+      dta_elast <- dta_elast %>%
+        add_row(ISIC_Name = i,
+                elasticityOutputEnergyISIC2 = elasticityOutputEnergyISIC2,
+                elasticityOutputEnergyISIC3 = elasticityOutputEnergyISIC3,
+                elasticityEmissionEnergyISIC2 = elasticityEmissionEnergyISIC2,
+                pollutionelasticityISIC2 = pollutionelasticityISIC2,
+                pollutionelasticityISIC3 = pollutionelasticityISIC3)
+    }
+  }
 }
 
-# Estimating Pollution Elasticity (ZEW-method)
+# Elasticity Estimation for 'Total Manufacturing
 {
-  # Create Dataframe
+  # Create Data with parameters, where Pollution Elasticity by Scaling and ZEW-method non-estimation
   {
-    dta_elast <- data.frame(NACE_Name = character(0),
-                            ISIC_Name = character(0),
-                            
-                            elasticityOutputEnergyNACE2 = numeric(0), 
-                            elasticityEmissionEnergyNACE2 = numeric(0),
-                            pollutionelasticityNACE2 = numeric(0),
-                            elasticityOutputEnergyNACE3 = numeric(0),
-                            pollutionelasticityNACE3 = numeric(0),
-                            
-                            elasticityOutputEnergyISIC2 = numeric(0), 
-                            elasticityEmissionEnergyISIC2 = numeric(0),
-                            pollutionelasticityISIC2 = numeric(0),
-                            elasticityOutputEnergyISIC3 = numeric(0),
-                            pollutionelasticityISIC3 = numeric(0))
+    "
+  Note: Greenhouse gases are in 1,000 tonnes, whereas output and costs data is in million DKK
+  "
+    dta_total <- dta_analysis %>%
+      filter(NACE_Name == 'Total Manufacturing' & year >= base_year & year <= end_year) %>%
+      
+      # ISIC: Calculate Parameters with Shapiro and Walker(2018) Estimation method
+      mutate(ISIC_Name = 'Total Manufacturing',
+             tonsPollCost = (!!sym(ghg)*1000)/!!sym(costs), # Calculating tons pollution per dollar costs
+             meantonsPollCost = tonsPollCost/ifelse(classsystem=='NACE', 11, 16),
+             pollutionelasticityISIC = alpha, # Calculating the Pollution elasticity with the mean alpha defined prior
+             inputshare = !!sym(costs)/realoutput, # Calculating the input share with costs defined prior
+             elasticitysubstitution = 1/(1-inputshare)) %>% # Calculating the Elasticity of Substitution by taking the ratio of the value of shipments to production costs, hence relying on assumption that firms engage in monopolistic competition
+      
+      # NACE_1: Calculate Pollution Elasticity with ZEW (2023) Estimation Method
+      arrange(year, .by_group = TRUE) %>%
+      mutate(lnrealoutput = log(realoutput),
+             lnrealcostEnergy = log(realcostEnergy),
+             lnghg = log(!!sym(ghg)),
+             energyshare = realcostEnergy/realoutput,
+             lnenergyshare = log(energyshare),
+             
+             chngOutputEnergyNACE = (lead(lnrealcostEnergy) - lnrealcostEnergy)/(lead(energyshare) - energyshare),
+             elasticityOutputEnergyNACE1 = (1/chngOutputEnergyNACE) * (lnrealcostEnergy/energyshare),
+             
+             chngEmissionEnergyNACE = (lead(lnrealcostEnergy) - lnrealcostEnergy)/(lead(lnghg) - !lnghg),
+             elasticityEmissionEnergyNACE1 = (1/chngEmissionEnergyNACE) * (lnrealcostEnergy/lnghg),
+             pollutionelasticityNACE1 = elasticityOutputEnergyNACE1/elasticityEmissionEnergyNACE1)
+    
+    # Test whether pollution Elasticity has been correctly calculated
+    mean(dta_total$pollutionelasticityISIC)
+    
+    # Add Label to column 'tonspollcost'
+    attr(dta_inter$tonsPollCost, 'label') <- 'Tons pollution per 1,000,000 DKK'
   }
   
-  # NACE: Estimation Loop for Pollution elasticity 
-  for(i in na.omit(unique(dta_inter$NACE_Name))){
-    dta_model <- dta_inter %>%
-      filter(NACE_Name == i & !is.na(NACE_Name) & year < 2017)
+  # Estimating Pollution Elasticity (ZEW-method)
+  {
+    # Create Dataframe
+    {
+      dta_elast_tot <- data.frame(NACE_Name = character(0),
+                              ISIC_Name = character(0),
+                              
+                              elasticityOutputEnergyNACE2 = numeric(0), 
+                              elasticityEmissionEnergyNACE2 = numeric(0),
+                              pollutionelasticityNACE2 = numeric(0),
+                              elasticityOutputEnergyNACE3 = numeric(0),
+                              pollutionelasticityNACE3 = numeric(0),
+                              
+                              elasticityOutputEnergyISIC2 = numeric(0), 
+                              elasticityEmissionEnergyISIC2 = numeric(0),
+                              pollutionelasticityISIC2 = numeric(0),
+                              elasticityOutputEnergyISIC3 = numeric(0),
+                              pollutionelasticityISIC3 = numeric(0))
+    }
     
-    # Run Estimations
-    model_test_OutputEnergyNACE2 <- lm(lnrealoutput ~ lnrealcostEnergy, data = dta_model)
-    model_test_OutputEnergyNACE3 <- lm(energyshare ~ lnrealcostEnergy, data = dta_model)
-    model_test_EmissionsEnergyNACE2 <- lm(lnghg ~ lnrealcostEnergy, data = dta_model)
-    
-    # Extract Beta 1 from Models
-    elasticityOutputEnergyNACE2 <- coef(model_test_OutputEnergyNACE2)[2]
-    elasticityOutputEnergyNACE3 <- coef(model_test_OutputEnergyNACE3)[2]
-    elasticityEmissionEnergyNACE2 <- coef(model_test_EmissionsEnergyNACE2)[2]
-    
-    # Calculate Pollution Elasticity from estimated elasticities (beta 1)
-    pollutionelasticityNACE2 = elasticityOutputEnergyNACE2/elasticityEmissionEnergyNACE2
-    pollutionelasticityNACE3 = elasticityOutputEnergyNACE3/elasticityEmissionEnergyNACE2
-    
-    # Add estimations to Model
-    dta_elast <- dta_elast %>%
-      add_row(NACE_Name = i,
-              elasticityOutputEnergyNACE2 = elasticityOutputEnergyNACE2,
-              elasticityOutputEnergyNACE3 = elasticityOutputEnergyNACE3,
-              elasticityEmissionEnergyNACE2 = elasticityEmissionEnergyNACE2,
-              pollutionelasticityNACE2 = pollutionelasticityNACE2,
-              pollutionelasticityNACE3 = pollutionelasticityNACE3)
-  }
-  
-  # ISIC: Estimation Loop for Pollution elasticity 
-  for(i in na.omit(unique(dta_inter$ISIC_Name))){
-    dta_model <- dta_inter %>%
-      filter(ISIC_Name == i & !is.na(ISIC_Name) & year < 2017)
-    
-    # Run Estimations
-    model_test_OutputEnergyISIC2 <- lm(lnrealoutput ~ lnrealcostEnergy, data = dta_model)
-    model_test_OutputEnergyISIC3 <- lm(energyshare ~ lnrealcostEnergy, data = dta_model)
-    model_test_EmissionsEnergyISIC2 <- lm(lnghg ~ lnrealcostEnergy, data = dta_model)
-    
-    # Extract Beta 1 from Models
-    elasticityOutputEnergyISIC2 <- coef(model_test_OutputEnergyISIC2)[2]
-    elasticityOutputEnergyISIC3 <- coef(model_test_OutputEnergyISIC3)[2]
-    elasticityEmissionEnergyISIC2 <- coef(model_test_EmissionsEnergyISIC2)[2]
-    
-    # Calculate Pollution Elasticity from estimated elasticities (beta 1)
-    pollutionelasticityISIC2 = elasticityOutputEnergyISIC2/elasticityEmissionEnergyISIC2
-    pollutionelasticityISIC3 = elasticityOutputEnergyISIC3/elasticityEmissionEnergyISIC2
-    
-    # Add estimations to Model
-    dta_elast <- dta_elast %>%
-      add_row(ISIC_Name = i,
-              elasticityOutputEnergyISIC2 = elasticityOutputEnergyISIC2,
-              elasticityOutputEnergyISIC3 = elasticityOutputEnergyISIC3,
-              elasticityEmissionEnergyISIC2 = elasticityEmissionEnergyISIC2,
-              pollutionelasticityISIC2 = pollutionelasticityISIC2,
-              pollutionelasticityISIC3 = pollutionelasticityISIC3)
+    # NACE: Estimation
+    {
+      # Run Estimations
+      model_test_OutputEnergyNACE2 <- lm(lnrealoutput ~ lnrealcostEnergy, data = dta_total)
+      model_test_OutputEnergyNACE3 <- lm(energyshare ~ lnrealcostEnergy, data = dta_total)
+      model_test_EmissionsEnergyNACE2 <- lm(lnghg ~ lnrealcostEnergy, data = dta_total)
+      
+      # Extract Beta 1 from Models
+      elasticityOutputEnergyNACE2 <- coef(model_test_OutputEnergyNACE2)[2]
+      elasticityOutputEnergyNACE3 <- coef(model_test_OutputEnergyNACE3)[2]
+      elasticityEmissionEnergyNACE2 <- coef(model_test_EmissionsEnergyNACE2)[2]
+      
+      # Calculate Pollution Elasticity from estimated elasticities (beta 1)
+      pollutionelasticityNACE2 = elasticityOutputEnergyNACE2/elasticityEmissionEnergyNACE2
+      pollutionelasticityNACE3 = elasticityOutputEnergyNACE3/elasticityEmissionEnergyNACE2
+      
+      # Add estimations to Model
+      dta_elast_tot <- dta_elast_tot %>%
+        add_row(NACE_Name = 'Total Manufacturing',
+                ISIC_Name = 'Total Manufacturing',
+                elasticityOutputEnergyNACE2 = elasticityOutputEnergyNACE2,
+                elasticityOutputEnergyNACE3 = elasticityOutputEnergyNACE3,
+                elasticityEmissionEnergyNACE2 = elasticityEmissionEnergyNACE2,
+                pollutionelasticityNACE2 = pollutionelasticityNACE2,
+                pollutionelasticityNACE3 = pollutionelasticityNACE3,
+                
+                elasticityOutputEnergyISIC2 = elasticityOutputEnergyNACE2,
+                elasticityOutputEnergyISIC3 = elasticityOutputEnergyNACE3,
+                elasticityEmissionEnergyISIC2 = elasticityEmissionEnergyNACE2,
+                pollutionelasticityISIC2 = pollutionelasticityNACE2,
+                pollutionelasticityISIC3 = pollutionelasticityNACE3)
+    }
   }
 }
 
 # Add 'dta_elast' to 'dta_inter' to create 'dta_parameter and save it
 {
-  dta_parameter <- dta_inter %>%
-    left_join(dta_elast, join_by(NACE_Name == NACE_Name, ISIC_Name == ISIC_Name))
+  dta_parameter <- rbind((dta_inter %>%
+                            left_join(dta_elast, join_by(NACE_Name == NACE_Name, ISIC_Name == ISIC_Name))),
+                         (dta_total %>%
+      left_join(dta_elast_tot, join_by(NACE_Name == NACE_Name, ISIC_Name == ISIC_Name))))
+    
   
   saveRDS(dta_parameter, file = "./Data/dta_parameter.rds")
 }
@@ -208,11 +311,11 @@ base_year <- 2001 # Base year for parameter
                                                    0.019, 0.008, 0.038))
 }
 
-# Table 2: Exporting all Parameters for base year to LATEX (ISIc)
+# Table 2: Exporting all Parameters for base year to LATEX (ISIC)
 {
   # Create a Table for LATEX format
   table2 <- xtable(x = (dta_parameter %>%
-                          filter(year == base_year & classsystem == 'ISIC') %>%
+                          filter(year == base_year & classsystem == 'ISIC' & ISIC_Name != 'Total Manufacturing') %>%
                           arrange(ISIC_Code) %>%
                           left_join(dta_US %>% select(ISIC_Name, USpollutionelasticity),
                                     join_by(ISIC_Name == ISIC_Name)) %>%
@@ -234,7 +337,7 @@ base_year <- 2001 # Base year for parameter
 {
   # Create a Table for LATEX format
   table3 <- xtable(x = (dta_parameter %>%
-                          filter(year == base_year & classsystem == 'ISIC') %>%
+                          filter(year == base_year & classsystem == 'ISIC' & ISIC_Name != 'Total Manufacturing') %>%
                           arrange(ISIC_Code) %>%
                           left_join(dta_US %>% select(ISIC_Name, USpollutionelasticity),
                                     join_by(ISIC_Name == ISIC_Name)) %>%
@@ -260,7 +363,7 @@ base_year <- 2001 # Base year for parameter
 {
   # Create a Table for LATEX format
   table4 <- xtable(x = (dta_parameter %>%
-                          filter(year == base_year & classsystem == 'NACE') %>%
+                          filter(year == base_year & classsystem == 'NACE' & NACE_Name != 'Total Manufacturing') %>%
                           arrange(NACE_Code) %>%
                           left_join(dta_GER, join_by(NACE_Name == NACE_Name)) %>%
                           select(NACE_Name, 
