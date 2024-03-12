@@ -46,7 +46,8 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
   business_02 <- read_xlsx("./Data/GF01_EnterpriseStatistics_117grouping.xlsx", range = "A3:X390")
   
   # Loading Energy Cost data
-  cost_ener <- read_xlsx("./Data/DK_CostsEnergy.xlsx", range = "B3:T1915")
+  cost_ener_01 <- read_xlsx("./Data/DK_CostsEnergy_117grouping_01.xlsx", range = "B3:T1915")
+  cost_ener_02 <- read_xlsx("./Data/DK_CostsEnergy_117grouping_02.xlsx", range = "B3:T1915")
   
   # Loading PPI data
   ppi <- read_xlsx("./Data/DK_PPIcommodities_Manufacturing.xlsx", range = "B3:KB46")
@@ -296,24 +297,38 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
 
 # Transform Energy Cost Data
 {
-  colnames(cost_ener)[1] <- 'costtype'
-  colnames(cost_ener)[2] <- 'classif'
+  colnames(cost_ener_01)[1] <- 'costtype'
+  colnames(cost_ener_01)[2] <- 'classif'
+  colnames(cost_ener_02)[1] <- 'costtype'
+  colnames(cost_ener_02)[2] <- 'classif'
   
-  cost_ener_trans <- cost_ener %>%
+  cost_ener_trans <- cost_ener_01 %>%
     fill(costtype) %>%
     pivot_longer(cols = starts_with("20"),
                  names_to = 'year',
                  values_to = '.value') %>%
+    filter(costtype == 'Energy expense at purchacers prices (7=1+ ... +6)') %>%
     pivot_wider(names_from = costtype,
                 values_from = .value) %>%
-    select(1, 2, 9) %>%
     rename(costEnergy = 'Energy expense at purchacers prices (7=1+ ... +6)') %>%
+    
+    left_join((cost_ener_02 %>%
+                 fill(costtype) %>%
+                 pivot_longer(cols = starts_with("20"),
+                              names_to = 'year',
+                              values_to = '.value') %>%
+                 filter(costtype == 'Energy expense at purchacers prices (7=1+ ... +6)') %>%
+                 pivot_wider(names_from = costtype,
+                             values_from = .value) %>%
+                 rename(costEnergyElectricityHeat = 'Energy expense at purchacers prices (7=1+ ... +6)')),
+              join_by(classif == classif, year == year)) %>%
     left_join((ppi_trans %>%
                  ungroup() %>%
                  filter(classif == "Energy (MIG)") %>%
                  select(year, PPI)),
               join_by(year == year)) %>%
-    mutate(realcostEnergy = round((costEnergy / (PPI/100)), digits = 2))
+    mutate(realcostEnergy = round((costEnergy / (PPI/100)), digits = 2),
+           realcostEnergyElectricityHeat = round((costEnergyElectricityHeat / (PPI/100)), digits = 2))
 }
 
 # Calculate Total of Manufacturing

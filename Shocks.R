@@ -24,7 +24,7 @@ The input for this script is the data 'dta_parameter.rds' from the script
 ghg <- 'CO2Total' # Greenhouse gas for the analysis to allow flexibility in choice
 costs <- 'realexpend' # Define column used as Costs for calculations
 alpha <- 0.011 # mean Pollution elasticity
-base_year <- 2001 # Base year for parameter
+base_year <- 2005 # Base year for parameter
 end_year <- 2016
 
 # Calculate shocks
@@ -44,7 +44,7 @@ end_year <- 2016
 # Plot for Chemicals, Food, Electrical (ISIC) - 'Landscape' 8.00 x 6.00
 {
   dta_env_plot <- dta_shocks %>%
-    filter(ISIC_Name %in% c("Chemicals", "Food, beverages, tobacco", "Machinery and equipment") & 
+    filter(ISIC_Name == 'Total Manufacturing' & #%in% c("Chemicals", "Food, beverages, tobacco", "Machinery and equipment") & 
              year >= base_year & year <= end_year) %>%
     select(ISIC_Name, year, envregulation) 
   
