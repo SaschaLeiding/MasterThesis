@@ -340,18 +340,56 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
               join_by(year == year)) %>%
     mutate(realcostEnergy = round((costEnergy / (PPI/100)), digits = 2),
            realcostEnergyElectricityHeat = round((costEnergyElectricityHeat / (PPI/100)), digits = 2))
+  
+  rm(cost_ener_01)
+  rm(cost_ener_02)
 }
 
 # Transform Renewable Energy FIT and PPA length data (OECD)
-# TODO
 {
+  dta_FITPPA <- cbind((OECDREFIT %>%
+    fill(Country) %>%
+    select(!'...2') %>%
+    rename(country = Country,
+           year = Year,
+           Solar = 'Solar PV',
+           Hydro = 'Small Hydro') %>%
+    mutate(across(Solar:Marine, as.numeric, .names="FIT{.col}")) %>%
+    select(country, year, starts_with("FIT"))),
+    (OECDREPPA %>%
+                 fill(Country) %>%
+                 select(!'...2') %>%
+                 rename(country = Country,
+                        year = Year,
+                        Solar = 'Solar PV',
+                        Hydro = 'Small Hydro') %>%
+                 mutate(across(Solar:Marine, as.numeric, .names="PPA{.col}")) %>%
+                 select(starts_with("PPA"))))
   
+  rm(OECDREFIT)
+  rm(OECDREPPA)
 }
 
 # Transform Electricity Price and Production Data (EUROSTAT)
 #TODO
 {
-  
+  dta_electricity <- EUROSTAT_ElectPrices_kWh_02 %>%
+    full_join(EUROSTAT_ElectPrices_kWh_01, join_by('GEO (Labels)' == 'GEO (Labels)',
+                                                   'TAX (Labels)' == 'TAX (Labels)')) %>%
+    select(!starts_with("...")) %>%
+    mutate(across(3:ncol(.), as.numeric)) %>%
+    pivot_longer(cols = 3:ncol(.), names_to = 'year', values_to = '.value') %>%
+    pivot_wider(id_cols = c('GEO (Labels)','year'),
+                names_from = "TAX (Labels)",
+                values_from = ".value") %>%
+    mutate(half = str_sub(year, -2),
+           year = str_sub(year, 1, 4)) %>%
+    rename(country = 'GEO (Labels)',
+           electBaseprice = 'Excluding taxes and levies',
+           electVATfreeprice = 'Excluding VAT and other recoverable taxes and levies',
+           electFinalprice = 'All taxes and levies included') %>%
+    group_by(country, year) %>%
+    summarise(across(.cols = where(is.numeric), .fns = mean, na.rm = TRUE), .groups = 'drop')
 }
 
 # Calculate Total of Manufacturing
