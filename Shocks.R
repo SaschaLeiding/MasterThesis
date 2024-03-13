@@ -21,8 +21,8 @@ The input for this script is the data 'dta_parameter.rds' from the script
 }
 
 # Define variables for flexibility in Code
-ghg <- 'CO2Total' # Greenhouse gas for the analysis to allow flexibility in choice
-costs <- 'realexpend' # Define column used as Costs for calculations
+ghg <- 'CO2ElectricityHeat' # Greenhouse gas for the analysis to allow flexibility in choice
+#costs <- 'realexpend' # Define column used as Costs for calculations
 alpha <- 0.011 # mean Pollution elasticity
 base_year <- 2005 # Base year for parameter
 end_year <- 2016
@@ -64,7 +64,7 @@ end_year <- 2016
 {
   # Create a Table for LATEX format
   table5 <- xtable(x = dta_shocks %>%
-                     filter(ISIC_Name == "Chemicals" & year >=base_year & year <= end_year) %>%
+                     filter(ISIC_Name == "Total Manufacturing" & year >=base_year & year <= end_year) %>%
                      select(year, realoutput, !!sym(ghg), firmEntry,
                             CompEmployees, Employees, wage_manuf,
                             envregulation),
@@ -80,4 +80,9 @@ end_year <- 2016
   print(table5, 
         include.rownames=FALSE, 
         format.args = list(big.mark = ",", decimal.mark = "."))
+}
+
+# Save Data
+{
+  saveRDS(dta_shocks, file = "./Data/dta_shocks.rds")
 }
