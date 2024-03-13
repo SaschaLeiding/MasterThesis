@@ -66,7 +66,18 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
   # Load OECD Exchange rate from 1,000 USD
   OECDFX <- read_xlsx("./Data/OECD_ExchangeRate.xlsx", range = "C3:Z67")
   
+  # Load OECD mean Feed-in tariffs and Purchase Power Agreements in USD per kWh
+  OECDREFIT <- read_xlsx("./Data/OECD_REFIT.xlsx", range = "A5:J1405")
+  OECDREPPA <- read_xlsx("./Data/OECD_REPPA.xlsx", range = "A5:J1405")
   
+  # Load EUROSTAT Electricity Price and Production Data in NATIONAL CURRENCY
+  EUROSTAT_ElectPrices_kWh_01 <- read_xlsx("./Data/EUROSTAT_ElectricityPrices_Industry_01.xlsx",
+                                       range = "A11:V101", sheet = 'Sheet 1')
+  EUROSTAT_ElectPrices_kWh_02 <- read_xlsx("./Data/EUROSTAT_ElectricityPrices_Industry_02.xlsx",
+                                       range = "A11:BP134", sheet = 'Sheet 1')
+  EUROSTAT_Production_GWh <- read_xlsx("./Data/EUROSTAT_ProductionElectricity_Denmark.xlsx",
+                                   range = "A9:E149", sheet = 'Sheet 1')
+
   ember <- read.csv("./Data/EMBER_ElectricityData.csv")
 }
 
@@ -329,6 +340,18 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
               join_by(year == year)) %>%
     mutate(realcostEnergy = round((costEnergy / (PPI/100)), digits = 2),
            realcostEnergyElectricityHeat = round((costEnergyElectricityHeat / (PPI/100)), digits = 2))
+}
+
+# Transform Renewable Energy FIT and PPA length data (OECD)
+# TODO
+{
+  
+}
+
+# Transform Electricity Price and Production Data (EUROSTAT)
+#TODO
+{
+  
 }
 
 # Calculate Total of Manufacturing

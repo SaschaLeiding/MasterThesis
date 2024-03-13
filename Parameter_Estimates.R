@@ -101,7 +101,16 @@ end_year <- 2016 # End year to define time sequence under observation
                               elasticityEmissionEnergyISIC2 = numeric(0),
                               pollutionelasticityISIC2 = numeric(0),
                               elasticityOutputEnergyISIC3 = numeric(0),
-                              pollutionelasticityISIC3 = numeric(0))
+                              pollutionelasticityISIC3 = numeric(0),
+                              
+                              # Elasticities excl. 2008
+                              elasticityOutputEnergyISICFinCri = numeric(0), 
+                              elasticityEmissionEnergyISICFinCri = numeric(0),
+                              pollutionelasticityISICFinCri = numeric(0),
+                              
+                              elasticityOutputEnergyNACEFinCri = numeric(0), 
+                              elasticityEmissionEnergyNACEFinCri = numeric(0),
+                              pollutionelasticityNACEFinCri = numeric(0))
     }
     
     # NACE: Estimation Loop for Pollution elasticity 
@@ -113,15 +122,23 @@ end_year <- 2016 # End year to define time sequence under observation
       model_test_OutputEnergyNACE2 <- lm(lnrealoutput ~ lnrealcostEnergy, data = dta_model)
       model_test_OutputEnergyNACE3 <- lm(energyshare ~ lnrealcostEnergy, data = dta_model)
       model_test_EmissionsEnergyNACE2 <- lm(lnghg ~ lnrealcostEnergy, data = dta_model)
+      # excl. Financial crisis(2008)
+      model_OutputEnergyNACEFinCri <- lm(energyshare ~ lnrealcostEnergy,
+                                         data = (dta_model %>% filter(year != 2008)))
+      model_EmissionsEnergyNACEFinCri <- lm(lnghg ~ lnrealcostEnergy,
+                                            data = (dta_model %>% filter(year != 2008)))
       
       # Extract Beta 1 from Models
       elasticityOutputEnergyNACE2 <- coef(model_test_OutputEnergyNACE2)[2]
       elasticityOutputEnergyNACE3 <- coef(model_test_OutputEnergyNACE3)[2]
       elasticityEmissionEnergyNACE2 <- coef(model_test_EmissionsEnergyNACE2)[2]
+      elasticityOutputEnergyNACEFinCri <- coef(model_OutputEnergyNACEFinCri)[2]
+      elasticityEmissionEnergyNACEFinCri <- coef(model_EmissionsEnergyNACEFinCri)[2]
       
       # Calculate Pollution Elasticity from estimated elasticities (beta 1)
       pollutionelasticityNACE2 = elasticityOutputEnergyNACE2/elasticityEmissionEnergyNACE2
       pollutionelasticityNACE3 = elasticityOutputEnergyNACE3/elasticityEmissionEnergyNACE2
+      pollutionelasticityNACEFinCri = elasticityOutputEnergyNACEFinCri/elasticityEmissionEnergyNACEFinCri
       
       # Add estimations to Model
       dta_elast <- dta_elast %>%
@@ -130,7 +147,10 @@ end_year <- 2016 # End year to define time sequence under observation
                 elasticityOutputEnergyNACE3 = elasticityOutputEnergyNACE3,
                 elasticityEmissionEnergyNACE2 = elasticityEmissionEnergyNACE2,
                 pollutionelasticityNACE2 = pollutionelasticityNACE2,
-                pollutionelasticityNACE3 = pollutionelasticityNACE3)
+                pollutionelasticityNACE3 = pollutionelasticityNACE3,
+                elasticityOutputEnergyNACEFinCri = elasticityOutputEnergyNACEFinCri, 
+                elasticityEmissionEnergyNACEFinCri = elasticityEmissionEnergyNACEFinCri,
+                pollutionelasticityNACEFinCri = pollutionelasticityNACEFinCri)
     }
     
     # ISIC: Estimation Loop for Pollution elasticity 
@@ -142,15 +162,23 @@ end_year <- 2016 # End year to define time sequence under observation
       model_test_OutputEnergyISIC2 <- lm(lnrealoutput ~ lnrealcostEnergy, data = dta_model)
       model_test_OutputEnergyISIC3 <- lm(energyshare ~ lnrealcostEnergy, data = dta_model)
       model_test_EmissionsEnergyISIC2 <- lm(lnghg ~ lnrealcostEnergy, data = dta_model)
+      # excl. Financial crisis(2008)
+      model_OutputEnergyISICFinCri <- lm(energyshare ~ lnrealcostEnergy,
+                                         data = (dta_model %>% filter(year != 2008)))
+      model_EmissionsEnergyISICFinCri <- lm(lnghg ~ lnrealcostEnergy,
+                                            data = (dta_model %>% filter(year != 2008)))
       
       # Extract Beta 1 from Models
       elasticityOutputEnergyISIC2 <- coef(model_test_OutputEnergyISIC2)[2]
       elasticityOutputEnergyISIC3 <- coef(model_test_OutputEnergyISIC3)[2]
       elasticityEmissionEnergyISIC2 <- coef(model_test_EmissionsEnergyISIC2)[2]
+      elasticityOutputEnergyISICFinCri <- coef(model_OutputEnergyISICFinCri)[2]
+      elasticityEmissionEnergyISICFinCri <- coef(model_EmissionsEnergyISICFinCri)[2]
       
       # Calculate Pollution Elasticity from estimated elasticities (beta 1)
       pollutionelasticityISIC2 = elasticityOutputEnergyISIC2/elasticityEmissionEnergyISIC2
       pollutionelasticityISIC3 = elasticityOutputEnergyISIC3/elasticityEmissionEnergyISIC2
+      pollutionelasticityISICFinCri = elasticityOutputEnergyISICFinCri/elasticityEmissionEnergyISICFinCri
       
       # Add estimations to Model
       dta_elast <- dta_elast %>%
@@ -159,7 +187,10 @@ end_year <- 2016 # End year to define time sequence under observation
                 elasticityOutputEnergyISIC3 = elasticityOutputEnergyISIC3,
                 elasticityEmissionEnergyISIC2 = elasticityEmissionEnergyISIC2,
                 pollutionelasticityISIC2 = pollutionelasticityISIC2,
-                pollutionelasticityISIC3 = pollutionelasticityISIC3)
+                pollutionelasticityISIC3 = pollutionelasticityISIC3,
+                elasticityOutputEnergyISICFinCri = elasticityOutputEnergyISICFinCri,
+                elasticityEmissionEnergyISICFinCri = elasticityEmissionEnergyISICFinCri,
+                pollutionelasticityISICFinCri = pollutionelasticityISICFinCri)
     }
   }
 }
@@ -221,7 +252,16 @@ end_year <- 2016 # End year to define time sequence under observation
                               elasticityEmissionEnergyISIC2 = numeric(0),
                               pollutionelasticityISIC2 = numeric(0),
                               elasticityOutputEnergyISIC3 = numeric(0),
-                              pollutionelasticityISIC3 = numeric(0))
+                              pollutionelasticityISIC3 = numeric(0),
+                              
+                              # Elasticities excl. 2008
+                              elasticityOutputEnergyISICFinCri = numeric(0), 
+                              elasticityEmissionEnergyISICFinCri = numeric(0),
+                              pollutionelasticityISICFinCri = numeric(0),
+                              
+                              elasticityOutputEnergyNACEFinCri = numeric(0), 
+                              elasticityEmissionEnergyNACEFinCri = numeric(0),
+                              pollutionelasticityNACEFinCri = numeric(0))
     }
     
     # NACE: Estimation
@@ -230,15 +270,22 @@ end_year <- 2016 # End year to define time sequence under observation
       model_test_OutputEnergyNACE2 <- lm(lnrealoutput ~ lnrealcostEnergy, data = dta_total)
       model_test_OutputEnergyNACE3 <- lm(energyshare ~ lnrealcostEnergy, data = dta_total)
       model_test_EmissionsEnergyNACE2 <- lm(lnghg ~ lnrealcostEnergy, data = dta_total)
+      model_OutputEnergyNACEFinCri <- lm(energyshare ~ lnrealcostEnergy,
+                                              data = (dta_total %>% filter(year != 2008)))
+      model_EmissionsEnergyNACEFinCri <- lm(lnghg ~ lnrealcostEnergy,
+                                                 data = (dta_total %>% filter(year != 2008)))
       
       # Extract Beta 1 from Models
       elasticityOutputEnergyNACE2 <- coef(model_test_OutputEnergyNACE2)[2]
       elasticityOutputEnergyNACE3 <- coef(model_test_OutputEnergyNACE3)[2]
       elasticityEmissionEnergyNACE2 <- coef(model_test_EmissionsEnergyNACE2)[2]
+      elasticityOutputEnergyNACEFinCri <- coef(model_OutputEnergyNACEFinCri)[2]
+      elasticityEmissionEnergyNACEFinCri <- coef(model_EmissionsEnergyNACEFinCri)[2]
       
       # Calculate Pollution Elasticity from estimated elasticities (beta 1)
       pollutionelasticityNACE2 = elasticityOutputEnergyNACE2/elasticityEmissionEnergyNACE2
       pollutionelasticityNACE3 = elasticityOutputEnergyNACE3/elasticityEmissionEnergyNACE2
+      pollutionelasticityNACEFinCri = elasticityOutputEnergyNACEFinCri/elasticityEmissionEnergyNACEFinCri
       
       # Add estimations to Model
       dta_elast_tot <- dta_elast_tot %>%
@@ -254,7 +301,15 @@ end_year <- 2016 # End year to define time sequence under observation
                 elasticityOutputEnergyISIC3 = elasticityOutputEnergyNACE3,
                 elasticityEmissionEnergyISIC2 = elasticityEmissionEnergyNACE2,
                 pollutionelasticityISIC2 = pollutionelasticityNACE2,
-                pollutionelasticityISIC3 = pollutionelasticityNACE3)
+                pollutionelasticityISIC3 = pollutionelasticityNACE3,
+                
+                elasticityOutputEnergyISICFinCri = elasticityOutputEnergyNACEFinCri, 
+                elasticityEmissionEnergyISICFinCri = elasticityEmissionEnergyNACEFinCri,
+                pollutionelasticityISICFinCri = pollutionelasticityNACEFinCri,
+                
+                elasticityOutputEnergyNACEFinCri = elasticityOutputEnergyNACEFinCri, 
+                elasticityEmissionEnergyNACEFinCri = elasticityEmissionEnergyNACEFinCri,
+                pollutionelasticityNACEFinCri = pollutionelasticityNACEFinCri)
     }
   }
 }
@@ -289,7 +344,19 @@ end_year <- 2016 # End year to define time sequence under observation
                        USpollutionelasticity = c(0.0557, 0.0205, 0.0212, 0.0019, 
                                         0.0040, 0.0047, 0.0015, 0.0014, 
                                         0.0016, 0.0023, 0.0303, 0.0019, 
-                                        0.0223, 0.0048, 0.0022, 0.0103))
+                                        0.0223, 0.0048, 0.0022, 0.0103),
+                       USParetoShape = c(10.01, 3.50, 9.91,
+                                         4.80, 3.89, 3.75,
+                                         4.19, 2.86, 5.6,
+                                         5.32, 4.05, 3.87,
+                                         5.21, 4.62, 4.8,
+                                         6.2),
+                       USParetoSE = c(0.50, 0.08, 1.67,
+                                      0.06, 0.13, 0.03,
+                                      0.14, 0.06, 0.18,
+                                      0.15, 0.11, 0.13,
+                                      0.10, 0.08, 0.10,
+                                      0.17))
   
   # Germany Dataframe
   dta_GER <- data.frame(NACE_Name = c("Basic Metals", "Chemicals and pharmaceuticals", "Coke, petroleum", 
@@ -308,7 +375,11 @@ end_year <- 2016 # End year to define time sequence under observation
                                                         1.002, 1.001, 0.873),
                         GERpollutionelasticity = c(0.063, 0.041, 0.009, 0.020,
                                                    0.010, 0.078, 0.058, 0.024,
-                                                   0.019, 0.008, 0.038))
+                                                   0.019, 0.008, 0.038),
+                        GERParetoShape = c(8.187, 2.605, 0.797,
+                                           2.102, 7.063, 6.841,
+                                           16.871, 5.483, 7.124,
+                                           5.147, 6.442))
 }
 
 # Table 2: Exporting all Parameters for base year to LATEX (ISIC)
@@ -317,17 +388,20 @@ end_year <- 2016 # End year to define time sequence under observation
   table2 <- xtable(x = (dta_parameter %>%
                           filter(year == base_year & classsystem == 'ISIC' & ISIC_Name != 'Total Manufacturing') %>%
                           arrange(ISIC_Code) %>%
-                          left_join(dta_US %>% select(ISIC_Name, USpollutionelasticity),
+                          left_join(dta_US %>% select(ISIC_Name, USpollutionelasticity,
+                                                      USParetoShape, USParetoSE),
                                     join_by(ISIC_Name == ISIC_Name)) %>%
                           select(ISIC_Name, tonsPollCost,
-                                 USpollutionelasticity, pollutionelasticityISIC, pollutionelasticityISIC3,
-                                 inputshare, elasticitysubstitution)),
-                   digits = c(2,2,2,4,4,4,2,2)) # Set number of decimals per column
+                                 pollutionelasticityISIC3,
+                                 inputshare, elasticitysubstitution,
+                                 USParetoShape, USParetoSE)),
+                   digits = c(2,2,2,4,2,2,2,2)) # Set number of decimals per column
   
   # Change Column Names in LATEX table
   names(table2) <- c("Industry", "Tons pollution per m DKK costs",
-                             "Pollution elasticity US", "Pollution elasticity DNK1", "Pollution elasticity DNK2",
-                             "Input Share", "Elasticity of Substitution")
+                             "Pollution elasticity",
+                             "Input Share", "Elasticity of Substitution",
+                     "Pareto Shape Parameter", "Shape Parameter SE")
   
   # Print Parameters table in LATEX format
   print(table2, include.rownames=FALSE)
@@ -343,17 +417,17 @@ end_year <- 2016 # End year to define time sequence under observation
                                     join_by(ISIC_Name == ISIC_Name)) %>%
                           left_join(dta_GER %>% select(ISIC_Name, GERpollutionelasticity),
                                     join_by(ISIC_Name == ISIC_Name)) %>%
-                          select(ISIC_Name, 
-                                 USpollutionelasticity, GERpollutionelasticity,
-                                 pollutionelasticityISIC, pollutionelasticityNACE1,
-                                 pollutionelasticityISIC2, pollutionelasticityISIC3)),
-                   digits = c(2,2,4,4,4,4,4,4)) # Set number of decimals per column
+                          select(ISIC_Name, GERpollutionelasticity,
+                                 pollutionelasticityNACE1,
+                                 pollutionelasticityISIC2, pollutionelasticityISIC3,
+                                 pollutionelasticityISICFinCri)),
+                   digits = c(2,2,4,4,4,4,4)) # Set number of decimals per column
   
   # Change Column Names in LATEX table
-  names(table3) <- c("Industry",
-                     "US", "GER",
-                     "Scaled", "ZEW calcul.",
-                     "ZEW ln(Real Output)", "ZEW ln(Energy Share)")
+  names(table3) <- c("Industry", "GER",
+                     "ZEW calcul.",
+                     "ZEW ln(Real Output)", "ZEW ln(Energy Share)",
+                     "ln(Energy Share) excl FinCri")
   
   # Print Parameters table in LATEX format
   print(table3, include.rownames=FALSE)
