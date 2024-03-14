@@ -75,8 +75,10 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
                                        range = "A11:V101", sheet = 'Sheet 1')
   EUROSTAT_ElectPrices_kWh_02 <- read_xlsx("./Data/EUROSTAT_ElectricityPrices_Industry_02.xlsx",
                                        range = "A11:BP134", sheet = 'Sheet 1')
-  EUROSTAT_Production_GWh <- read_xlsx("./Data/EUROSTAT_ProductionElectricity_Denmark.xlsx",
-                                   range = "A9:E149", sheet = 'Sheet 1')
+  EUROSTAT_Production_Electricity <- read_xlsx("./Data/EUROSTAT_Production_Electricity.xlsx",
+                                               range = "A9:V829", sheet = 'Sheet 1')
+  EUROSTAT_Production_Heat <- read_xlsx("./Data/EUROSTAT_Production_Heat.xlsx",
+                                               range = "A9:V829", sheet = 'Sheet 1')
 
   ember <- read.csv("./Data/EMBER_ElectricityData.csv")
 }
@@ -370,10 +372,9 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
   rm(OECDREPPA)
 }
 
-# Transform Electricity Price and Production Data (EUROSTAT)
-#TODO
+# Transform Electricity Price and Production Data (EUROSTAT) # dta_electricityheat
 {
-  dta_electricity <- EUROSTAT_ElectPrices_kWh_02 %>%
+  Electricity_Price <- EUROSTAT_ElectPrices_kWh_02 %>%
     full_join(EUROSTAT_ElectPrices_kWh_01, join_by('GEO (Labels)' == 'GEO (Labels)',
                                                    'TAX (Labels)' == 'TAX (Labels)')) %>%
     select(!starts_with("...")) %>%
@@ -390,6 +391,42 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
            electFinalprice = 'All taxes and levies included') %>%
     group_by(country, year) %>%
     summarise(across(.cols = where(is.numeric), .fns = mean, na.rm = TRUE), .groups = 'drop')
+  
+  ElectricityHeat_Production <- EUROSTAT_Production_Electricity %>%
+    select(!starts_with("...")) %>%
+    select(!('Ambient heat (heat pumps)')) %>%
+    rename(country = 'GEO (Labels)',
+           year = TIME,
+           SolarThermal = 'Solar thermal',
+           Solar = 'Solar photovoltaic',
+           Marine = 'Tide, wave, ocean',
+           Biomass = Biogases,
+           Waste = 'Renewable municipal waste') %>%
+    mutate(across(3:ncol(.), as.numeric, .names="Elect_{.col}")) %>%
+    left_join((EUROSTAT_Production_Heat %>%
+                 select(!starts_with("...")) %>%
+                 select(!('Ambient heat (heat pumps)')) %>%
+                 rename(country = 'GEO (Labels)',
+                        year = TIME,
+                        SolarThermal = 'Solar thermal',
+                        Solar = 'Solar photovoltaic',
+                        Marine = 'Tide, wave, ocean',
+                        Biomass = Biogases,
+                        Waste = 'Renewable municipal waste') %>%
+                 mutate(across(3:ncol(.), as.numeric, .names="Heat_{.col}"))),
+              join_by(country == country, year == year)) %>%
+    select(country, year, starts_with("Elect_"), starts_with("Heat_"))
+  
+  dta_electricityheat <- ElectricityHeat_Production %>%
+    left_join(Electricity_Price,
+              join_by(country == country, year == year))
+  
+  rm(EUROSTAT_ElectPrices_kWh_01)
+  rm(EUROSTAT_ElectPrices_kWh_02)
+  rm(EUROSTAT_Production_Electricity)
+  rm(EUROSTAT_Production_Heat)
+  rm(Electricity_Price)
+  rm(ElectricityHeat_Production)
 }
 
 # Calculate Total of Manufacturing
@@ -510,11 +547,6 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
   
 }
 
-# Combine NACE and ISIC data
-{
-  dta_analysis <- dta_NACE %>% full_join(dta_ISIC)
-}
-
 # Merge International Data
 {
   # Classification Match
@@ -577,44 +609,44 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
   # Country codes for IEA
   {
     country_IEA <- c("Australia", "Austria", "Belgium", "Canada", "Czech Republic", 
-                 "Denmark", "Estonia", "Finland", "France", "Germany", "Greece", 
-                 "Hungary", "Ireland", "Italy", "Japan", "Korea", "Lithuania", 
-                 "Luxembourg", "Mexico", "Netherlands", "New Zealand", "Norway", 
-                 "Poland", "Portugal", "Slovak Republic", "Spain", "Sweden", 
-                 "Switzerland", "Republic of Türkiye", "United Kingdom", 
-                 "United States", "Argentina", "Brazil", "Morocco", "South Africa", 
-                 "Ukraine", "Chile", "Latvia", "Albania", "Armenia", "Azerbaijan", 
-                 "Belarus", "Bosnia and Herzegovina", "Bulgaria", "Croatia", 
-                 "Cyprus", "Georgia", "Kazakhstan", "Kosovo", "Kyrgyzstan", 
-                 "Republic of North Macedonia", "Malta", "Republic of Moldova", 
-                 "Romania", "Serbia", "Slovenia", "Uruguay", "Uzbekistan")
+                     "Denmark", "Estonia", "Finland", "France", "Germany", "Greece", 
+                     "Hungary", "Ireland", "Italy", "Japan", "Korea", "Lithuania", 
+                     "Luxembourg", "Mexico", "Netherlands", "New Zealand", "Norway", 
+                     "Poland", "Portugal", "Slovak Republic", "Spain", "Sweden", 
+                     "Switzerland", "Republic of Türkiye", "United Kingdom", 
+                     "United States", "Argentina", "Brazil", "Morocco", "South Africa", 
+                     "Ukraine", "Chile", "Latvia", "Albania", "Armenia", "Azerbaijan", 
+                     "Belarus", "Bosnia and Herzegovina", "Bulgaria", "Croatia", 
+                     "Cyprus", "Georgia", "Kazakhstan", "Kosovo", "Kyrgyzstan", 
+                     "Republic of North Macedonia", "Malta", "Republic of Moldova", 
+                     "Romania", "Serbia", "Slovenia", "Uruguay", "Uzbekistan")
     countrycode_IEAINDSTAT <- c(036, 040, 056, 124, 203, 208, 233, 246, 250, 276, 300,
-                             348, 372, 380, 392, 410, 440, 442, 484, 528, 554, 
-                             578, 616, 620, 703, 724, 752, 756, 792, 826, 840,
-                             032, 076, 504, 710, 804, 152, 428, 008, 051, 031, 112, 070,
-                             100, 191, 196, 268, 398, 412, 417, 807, 470, 498, 
-                             642, 688, 705, 858, 860)
+                                348, 372, 380, 392, 410, 440, 442, 484, 528, 554, 
+                                578, 616, 620, 703, 724, 752, 756, 792, 826, 840,
+                                032, 076, 504, 710, 804, 152, 428, 008, 051, 031, 112, 070,
+                                100, 191, 196, 268, 398, 412, 417, 807, 470, 498, 
+                                642, 688, 705, 858, 860)
     
-    #country_OECD <- c("Albania", "Argentina", "Australia", "Austria", "Belgium", 
-    #                  "Brazil", "Bulgaria", "Cameroon", "Canada", "Chile", 
-    #                  "China (People's Republic of)", "Colombia", "Costa Rica", 
-    #                  "Croatia", "Cyprus", "Czechia", "Denmark", "Estonia", 
-    #                  "Euro area (19 countries)", "European Union (27 countries, 2020)", 
-    #                  "Finland", "France", "Georgia", "Germany", "Greece", 
-    #                  "Hong Kong, China", "Hungary", "Iceland", "India", "Indonesia", 
-    #                  "Ireland", "Israel", "Italy", "Japan", "Korea", "Latvia", 
-    #                  "Lithuania", "Luxembourg", "Madagascar", "Malta", "Mexico", 
-    #                  "Morocco", "Netherlands", "New Zealand", "North Macedonia", 
-    #                  "Norway", "Poland", "Portugal", "Romania", "Russia", 
-    #                  "Saudi Arabia", "Senegal", "Serbia", "Singapore", "Slovak Republic", 
-    #                  "Slovenia", "South Africa", "Spain", "Sweden", "Switzerland", 
-    #                  "Türkiye", "United Kingdom", "United States", "Zambia")
-    #countrycode_OECDINDSTAT <- c(08, 032, 036, 040, 056, 076, 100, 120, 124, 152, 156, 170, 
-    #                      188, 191, 196, 203, 208, 233, NA, NA, 246, 250, 268, 
-    #                      276, 300, 344, 348, 352, 356, 360, 372, 376, 380, 392, 
-    #                      410, 428, 440, 442, 450, 470, 484, 504, 528, 554, 807, 
-    #                      578, 616, 620, 642, 643, 682, 686, 688, 702, 703, 705, 
-    #                      710, 724, 752, 756, 792, 826, 840, 894)
+    country_EUROSTAT <- c("Albania", "Argentina", "Australia", "Austria", "Belgium", 
+                          "Brazil", "Bulgaria", "Cameroon", "Canada", "Chile", 
+                          "China (People's Republic of)", "Colombia", "Costa Rica", 
+                          "Croatia", "Cyprus", "Czechia", "Denmark", "Estonia", 
+                          "Euro area (19 countries)", "European Union (27 countries, 2020)", 
+                          "Finland", "France", "Georgia", "Germany", "Greece", 
+                          "Hong Kong, China", "Hungary", "Iceland", "India", "Indonesia", 
+                          "Ireland", "Israel", "Italy", "Japan", "Korea", "Latvia", 
+                          "Lithuania", "Luxembourg", "Madagascar", "Malta", "Mexico", 
+                          "Morocco", "Netherlands", "New Zealand", "North Macedonia", 
+                          "Norway", "Poland", "Portugal", "Romania", "Russia", 
+                          "Saudi Arabia", "Senegal", "Serbia", "Singapore", "Slovak Republic", 
+                          "Slovenia", "South Africa", "Spain", "Sweden", "Switzerland", 
+                          "Türkiye", "United Kingdom", "United States", "Zambia")
+    countrycode_EUROSTAT <- c(08, 032, 036, 040, 056, 076, 100, 120, 124, 152, 156, 170, 
+                              188, 191, 196, 203, 208, 233, NA, NA, 246, 250, 268, 
+                              276, 300, 344, 348, 352, 356, 360, 372, 376, 380, 392, 
+                              410, 428, 440, 442, 450, 470, 484, 504, 528, 554, 807, 
+                              578, 616, 620, 642, 643, 682, 686, 688, 702, 703, 705, 
+                              710, 724, 752, 756, 792, 826, 840, 894)
   }
   IEA_emissions <- IEA_emissions[-1,]
   
@@ -668,22 +700,22 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
     
     # Add Emission data
     left_join((IEA_emissions %>%
-                rename('country' = 'Time',
-                       classif = ...2) %>%
-                select(-starts_with("..")) %>%
-                fill(country) %>%
-                mutate(classif = str_remove(classif, " \\[.*")) %>%
-                pivot_longer(cols = starts_with("20"),
-                             names_to = 'year',
-                             values_to = 'Emissions') %>% # in Million tonnes CO2
-                mutate(Emissions = Emissions* 1000) %>%
-                left_join(as.data.frame(cbind(country_IEA, countrycode_IEAINDSTAT)),
-                          join_by(country == country_IEA)) %>%
+                 rename('country' = 'Time',
+                        classif = ...2) %>%
+                 select(-starts_with("..")) %>%
+                 fill(country) %>%
+                 mutate(classif = str_remove(classif, " \\[.*")) %>%
+                 pivot_longer(cols = starts_with("20"),
+                              names_to = 'year',
+                              values_to = 'Emissions') %>% # in Million tonnes CO2
+                 mutate(Emissions = Emissions* 1000) %>%
+                 left_join(as.data.frame(cbind(country_IEA, countrycode_IEAINDSTAT)),
+                           join_by(country == country_IEA)) %>%
                  select(!country)),
               join_by(classif_IEA == classif,
                       year == year,
                       countrycode_INDSTAT == countrycode_IEAINDSTAT)) %>%
-
+    
     # Add OECD Exchange rate to USD
     left_join((OECDFX %>%
                  filter(Location %in% c("Denmark", "Germany")) %>%
@@ -694,7 +726,33 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
                  pivot_wider(names_from = Location,
                              values_from = FXrateUSD)%>%
                  rename(DKKUSD = Denmark,
-                        EURUSD = Germany)), join_by(year == year))
+                        EURUSD = Germany)), join_by(year == year)) %>%
+    
+    # Add FIT and PPA data
+    left_join((dta_FITPPA %>%
+                 full_join(dta_electricityheat,
+                           join_by(country == country, year == year)) %>%
+                 left_join((as.data.frame(cbind(country_EUROSTAT,countrycode_EUROSTAT))),
+                           join_by(country == country_EUROSTAT)) %>%
+                 drop_na(countrycode_EUROSTAT) %>%
+                 select(!country)),
+              join_by(countrycode_INDSTAT == countrycode_EUROSTAT,
+                      year == year))
+}
+
+# Combine NACE and ISIC data
+{
+  dta_analysis <- dta_NACE %>%
+    full_join(dta_ISIC) %>%
+    left_join(dta_FITPPA %>%
+                 full_join(dta_electricityheat,
+                           join_by(country == country, year == year)) %>%
+                 left_join((as.data.frame(cbind(country_EUROSTAT,countrycode_EUROSTAT))),
+                           join_by(country == country_EUROSTAT)) %>%
+                 drop_na(countrycode_EUROSTAT) %>%
+                 filter(country == 'Denmark') %>%
+                 select(!c('country', 'countrycode_EUROSTAT')),
+              join_by(year == year))
 }
 
 # Save the Data
