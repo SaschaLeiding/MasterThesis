@@ -82,7 +82,17 @@ end_year <- 2016
         format.args = list(big.mark = ",", decimal.mark = "."))
 }
 
+# Merge final data
+{
+  dta_policy <- dta_parameter %>%
+    left_join(dta_shocks %>%
+                mutate(year = as.character(year)) %>%
+                select(ISIC_Name, NACE_Name, year, envregulation),
+              join_by(ISIC_Name == ISIC_Name, NACE_Name == NACE_Name, year == year))
+}
+
 # Save Data
 {
   saveRDS(dta_shocks, file = "./Data/dta_shocks.rds")
+  saveRDS(dta_policy, file = "./Data/dta_policy.rds")
 }
