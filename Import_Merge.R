@@ -33,7 +33,7 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
   emissionsEqui69_02 <- read_xlsx("./Data/DK_EmissionsEquivalents_69grouping_02.xlsx", range = "A3:D1658")
   
   # Loading DRIVHUS2: CO2 in direct and indirect emissions by industry, time and type of emission
-  emissionsEqui_05 <- read_xlsx("./Data/DK_CO2_117grouping.xlsx", range = "A3:E2544")
+  emissionsEqui_05 <- read_xlsx("./Data/DK_CO2_117grouping.xlsx", range = "A3:E2544") # 1,000 tonnes
   
   # Loading NABO: Production and generation of income by price unity, transaction, industry and time
   output_01 <- read_xlsx("./Data/DK_Production_117grouping_01.xlsx", range = "A4:F2384")
@@ -46,8 +46,12 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
   business_02 <- read_xlsx("./Data/GF01_EnterpriseStatistics_117grouping.xlsx", range = "A3:X390")
   
   # Loading Energy Cost data
-  cost_ener_01 <- read_xlsx("./Data/DK_CostsEnergy_117grouping_01.xlsx", range = "B3:T1915")
-  cost_ener_02 <- read_xlsx("./Data/DK_CostsEnergy_117grouping_02.xlsx", range = "B3:T1915")
+  cost_ener_01 <- read_xlsx("./Data/DK_CostsEnergy_117grouping_01.xlsx", range = "B3:T1915") # million DKK
+  cost_ener_02 <- read_xlsx("./Data/DK_CostsEnergy_117grouping_02.xlsx", range = "B3:T1915") # million DKK
+  
+  # Loading Energy Use Data
+  # Electricity = GWh; Heat = TJ
+  ener_use <- read_xlsx("./Data/DK_EnergyUse_117grouping.xlsx", range = "A3:D2363")
   
   # Loading PPI data
   ppi <- read_xlsx("./Data/DK_PPIcommodities_Manufacturing.xlsx", range = "B3:KB46")
@@ -67,10 +71,12 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
   OECDFX <- read_xlsx("./Data/OECD_ExchangeRate.xlsx", range = "C3:Z67")
   
   # Load OECD mean Feed-in tariffs and Purchase Power Agreements in USD per kWh
-  OECDREFIT <- read_xlsx("./Data/OECD_REFIT.xlsx", range = "A5:J1405")
+  OECDREFIT <- read_xlsx("./Data/OECD_REFIT.xlsx", range = "A5:J1405") # USD per kWh
   OECDREPPA <- read_xlsx("./Data/OECD_REPPA.xlsx", range = "A5:J1405")
   
   # Load EUROSTAT Electricity Price and Production Data in NATIONAL CURRENCY
+  # Prices = national Currency per kWh 
+  # Production = GWh
   EUROSTAT_ElectPrices_kWh_01 <- read_xlsx("./Data/EUROSTAT_ElectricityPrices_Industry_01.xlsx",
                                        range = "A11:V101", sheet = 'Sheet 1')
   EUROSTAT_ElectPrices_kWh_02 <- read_xlsx("./Data/EUROSTAT_ElectricityPrices_Industry_02.xlsx",
@@ -308,12 +314,14 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
   rm(ppi)
 }
 
-# Transform Energy Cost Data
+# Transform Energy Cost and Use Data
 {
   colnames(cost_ener_01)[1] <- 'costtype'
   colnames(cost_ener_01)[2] <- 'classif'
   colnames(cost_ener_02)[1] <- 'costtype'
   colnames(cost_ener_02)[2] <- 'classif'
+  colnames(ener_use)[1] <- 'classif'
+  colnames(ener_use)[2] <- 'year'
   
   cost_ener_trans <- cost_ener_01 %>%
     fill(costtype) %>%
@@ -335,6 +343,16 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
                              values_from = .value) %>%
                  rename(costEnergyElectricityHeat = 'Energy expense at purchacers prices (7=1+ ... +6)')),
               join_by(classif == classif, year == year)) %>%
+    
+    left_join((ener_use %>%
+                 fill(classif) %>%
+                 rename(UseElectricityGWh = 'Electricity (GWh)',
+                        UseHeatTJ = 'District heat (TJ)') %>%
+                 mutate(UseElectricity = UseElectricityGWh*1000000,
+                        UseHeat = UseHeatTJ * 277777.778) %>%
+                 select(!(c('UseElectricityGWh', 'UseHeatTJ')))),
+              join_by(classif == classif, year == year)) %>%
+    
     left_join((ppi_trans %>%
                  ungroup() %>%
                  filter(classif == "Energy (MIG)") %>%
@@ -372,7 +390,7 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
   rm(OECDREPPA)
 }
 
-# Transform Electricity Price and Production Data (EUROSTAT) # dta_electricityheat
+# Transform Electricity Price and Production Data (EUROSTAT)
 {
   Electricity_Price <- EUROSTAT_ElectPrices_kWh_02 %>%
     full_join(EUROSTAT_ElectPrices_kWh_01, join_by('GEO (Labels)' == 'GEO (Labels)',
@@ -415,7 +433,8 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
                         Waste = 'Renewable municipal waste') %>%
                  mutate(across(3:ncol(.), as.numeric, .names="Heat_{.col}"))),
               join_by(country == country, year == year)) %>%
-    select(country, year, starts_with("Elect_"), starts_with("Heat_"))
+    select(country, year, starts_with("Elect_"), starts_with("Heat_")) %>%
+    mutate(across(is.numeric, ~.x*1000000))
   
   dta_electricityheat <- ElectricityHeat_Production %>%
     left_join(Electricity_Price,
@@ -429,7 +448,7 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
   rm(ElectricityHeat_Production)
 }
 
-# Calculate Total of Manufacturing
+# Calculate Total of Manufacturing #ENERGY USE appended through 'cost_ener_use', thus Statbank data
 {
   dta_total <- emissions %>% # Take 'Air Emission Accounts' as Base data
     left_join((emissionsEqui) %>% distinct(), # Note: 'emissionsEqui' contains duplicates
@@ -517,8 +536,9 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
            ISIC_Name = NA,
            classsystem = 'NACE') %>%
     group_by(year) %>%
-    mutate(output_share = realoutput/(sum(realoutput)/2),
-           wage_manuf = CompEmployees[NACE_Name == 'Total Manufacturing'] / Employees[NACE_Name ==  'Total Manufacturing']) # divide by 2 because the sum includes each idniv. and the total together
+    mutate(output_share = realoutput/(sum(realoutput)/2), # divide by 2 because the sum includes each indiv. and the total together
+           wage_manuf = CompEmployees[NACE_Name == 'Total Manufacturing'] / Employees[NACE_Name ==  'Total Manufacturing'],
+           UseElectricityShare = UseElectricity/(sum(UseElectricity)/2))
 }
 
 # Create Shapiro&Walker(ISIC)-classification data
@@ -542,9 +562,9 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
            NACE_Name = NA,
            classsystem = 'ISIC') %>%
     group_by(year) %>%
-    mutate(output_share = realoutput/(sum(realoutput)/2),
-           wage_manuf = CompEmployees[ISIC_Name == 'Total Manufacturing'] / Employees[ISIC_Name ==  'Total Manufacturing']) # divide by 2 because the sum includes each idniv. and the total together
-  
+    mutate(output_share = realoutput/(sum(realoutput)/2),# divide by 2 because the sum includes each idniv. and the total together
+           wage_manuf = CompEmployees[ISIC_Name == 'Total Manufacturing'] / Employees[ISIC_Name ==  'Total Manufacturing'],
+           UseElectricityShare = UseElectricity/(sum(UseElectricity)/2))
 }
 
 # Merge International Data
@@ -740,7 +760,8 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
                       year == year))
 }
 
-# Combine NACE and ISIC data
+# Combine NACE, ISIC data, FITPPA and Electricity/HEat Production by fueltype
+# Transform FITPPA from kWh/USD to kWh/DKK
 {
   dta_analysis <- dta_NACE %>%
     full_join(dta_ISIC) %>%
@@ -752,7 +773,36 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
                  drop_na(countrycode_EUROSTAT) %>%
                  filter(country == 'Denmark') %>%
                  select(!c('country', 'countrycode_EUROSTAT')),
-              join_by(year == year))
+              join_by(year == year)) %>%
+    
+    # ADD FX rates
+    left_join((OECDFX %>%
+                 filter(Location %in% c("Denmark", "Germany")) %>%
+                 pivot_longer(cols = starts_with("20"),
+                              names_to = 'year',
+                              values_to = 'FXrateUSD') %>%
+                 mutate(FXrateUSD = as.numeric(FXrateUSD)/1000) %>%
+                 pivot_wider(names_from = Location,
+                             values_from = FXrateUSD)%>%
+                 rename(DKKUSD = Denmark,
+                        EURUSD = Germany)),
+              join_by(year == year)) %>%
+    mutate(across(starts_with('FIT'), ~.x*DKKUSD))
+
+  testtt <- dta_analysis %>% select(year, NACE_Name, #UseElectricity,
+                                    UseElectricityShare,
+                                    starts_with('Elect_')) %>%
+    filter(!is.na(NACE_Name)) %>%
+    # Calculate Share of Fuel of Total
+    group_by(year) %>% # QQ = is necessary to group???
+    mutate(across(starts_with('Elect'), ~.x/Elect_Total, .names="Share{.col}")) %>%
+    select(!c("Elect_Hydro", "Elect_Geothermal", "Elect_Wind","Elect_SolarThermal",
+              "Elect_Solar", "Elect_Marine", "Elect_Biomass", "Elect_Waste")) %>%
+    mutate(across(starts_with('ShareElect'), ~.x*UseElectricityShare, .names="Tot{.col}"),
+           across(starts_with('TotShareElect'), ~.x*Elect_Total, .names="Exp{.col}")) %>%
+    rename_with(~gsub("ExpTotShareElect_", "Exposure_", .x), starts_with("ExpTotShareElect_"))
+    
+  
 }
 
 # Save the Data
