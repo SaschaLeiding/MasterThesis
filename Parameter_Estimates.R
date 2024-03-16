@@ -36,7 +36,7 @@ Attention: Variable 'ghg' must be the same in all Scripts
 ghg <- 'CO2Total' # Greenhouse gas for the analysis to allow flexibility in choice
 costs <- 'realexpend' # Define column used as Costs for calculations
 alpha <- 0.011 # mean Pollution elasticity
-base_year <- 2005 # Base year for parameter
+base_year <- 2003 # Base year for parameter
 end_year <- 2016 # End year to define time sequence under observation
 
 # Elasticity Estimation for by each sector

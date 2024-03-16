@@ -29,7 +29,7 @@ Print Plots as PDF in 'Landscape' 8.00 x 6.00
 
 # Define variables for flexibility in Code
 ghg <- 'CO2Total' # Greenhouse gas for the analysis to allow flexibility in choice
-base_year <- 2001 # Base year for the normalizing the 3 effects
+base_year <- 2003 # Base year for the normalizing the 3 effects
 end_year <- 2016 # End year to define time sequence under observation
 
 # Decomposition
@@ -75,12 +75,13 @@ end_year <- 2016 # End year to define time sequence under observation
     theme_classic() +
     theme(legend.position = c(.15, .22),
           #panel.background = element_rect(fill = "#FFFFFF"),
-          panel.grid.major.y = element_line(color = "#8B8878"))
+          panel.grid.major.y = element_line(color = "#8B8878")) +
+    geom_vline(xintercept = '2009', color = "black", linetype = "dotted")
   
   lplot_manufacturing
 }
 
-# Trends in Manufacturing Pollution Emissions - 'Landscape' 8.00 x 6.00
+# Trends in Pollution Emissions - 'Landscape' 8.00 x 6.00
 {
   dta_emissions_plot <- dta_decomp %>% 
     filter(ISIC_Name == 'Total Manufacturing') %>%
@@ -134,6 +135,7 @@ end_year <- 2016 # End year to define time sequence under observation
 
   lplot_decom <- ggplot(data = dta_decomp_plot, aes(x = year, y = Values, color = Effect, group = Effect)) +
     geom_line() +
+    geom_vline(xintercept = '2009', color = "black", linetype = "dotted")+
     labs(#title = "Development of various Greenhouse Gas Emissions",
       x = "Year",
       y = paste0("Base ", base_year, " = 100"),
@@ -151,10 +153,10 @@ end_year <- 2016 # End year to define time sequence under observation
   dta_technique <- dta_decomp %>% 
     filter(classsystem == 'ISIC') %>% 
     select(ISIC_Name, year, techn, scale, comp, scale_comp_techn) %>%
-    mutate(line_size = ifelse(ISIC_Name == "Total Manufacturing", 1, 0.5))%>% 
-    filter(ISIC_Name %in% c("Food, beverages, tobacco","Coke, refined petroleum, fuels",
-                            "Chemicals","Other non-metallic minerals","Machinery and equipment",
-                            "Total Manufacturing"))
+    mutate(line_size = ifelse(ISIC_Name == "Total Manufacturing", 1, 0.5)) #%>% 
+    #filter(ISIC_Name %in% c("Food, beverages, tobacco","Coke, refined petroleum, fuels",
+     #                       "Chemicals","Other non-metallic minerals","Machinery and equipment",
+      #                      "Total Manufacturing"))
   
   # Legend Titles
   {
@@ -179,9 +181,10 @@ end_year <- 2016 # End year to define time sequence under observation
   for (i in decomp) {
     effects_plots[[paste0("lplot_", i)]] <- ggplot(data = dta_technique, aes(x=year, y=!!sym(i), color=ISIC_Name, group=ISIC_Name)) +
       geom_line(size=dta_technique$line_size) +
+      geom_vline(xintercept = '2009', color = "black", linetype = "dotted") +
       scale_x_discrete(breaks = year_breaks) +
       scale_colour_discrete(breaks = legend_titles) +
-      labs(x=NULL, y = "Base 2001 = 100") +
+      labs(x=NULL, y = "Base 2003 = 100") +
       theme_classic() +
       theme(panel.grid.major.y = element_line(color = "#8B8878"))
       guides(size = FALSE)
@@ -220,7 +223,7 @@ Composition for all negative
 ### NEED TO FIX
 {
   dta_style <- dta_decomp %>%
-    filter(classsystem == "ISIC" & year == 2001) %>%
+    filter(classsystem == "ISIC" & year == 2003) %>%
     select(ISIC_Name, !!sym(ghg), output_share, realoutput, realexpend, realcostEnergy, ISIC_Code) %>%
     mutate(across(realoutput:realcostEnergy, ~round(.x, digits = 0)),
            output_share = output_share*100) %>%
@@ -232,7 +235,7 @@ Composition for all negative
     arrange(ISIC_Code) %>%
     
     left_join(dta_decomp %>%
-                filter(classsystem == "ISIC" & (year %in% c(2001,2016))) %>%
+                filter(classsystem == "ISIC" & (year %in% c(2003,2016))) %>%
                 select(ISIC_Name, year, !!sym(ghg), output_share, realoutput, realexpend, realcostEnergy) %>%
                 #mutate_if(is.numeric, ~round(.x, digits = 0)) %>%
                 group_by(ISIC_Name) %>%
@@ -243,7 +246,7 @@ Composition for all negative
                        "Real Costs" = "realexpend",
                        "Real Energy Costs" = "realcostEnergy") %>%
                 rename_if(is.numeric, ~paste0("Change in ", .x)) %>%
-                filter(year == 2001) %>% select(!year),
+                filter(year == 2003) %>% select(!year),
               join_by(ISIC_Name == ISIC_Name)) %>%
     select(ISIC_Name, Emissions, 'Change in Emissions',
            'Output Share', 'Change in Output Share', 'Real Output', 'Change in Real Output',

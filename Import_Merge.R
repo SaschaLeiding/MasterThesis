@@ -93,7 +93,7 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
 {
   ghg <- 'CO2Total' # Greenhouse gas for the analysis to allow flexibility in choice
   varname_ghgintensity <- paste0(ghg, "_intensity")
-  base_year <- 2005
+  base_year <- 2003
 }
 
 # Transform Air Emissions Accounts for Merging and Create unique Air Emissions Dataset
