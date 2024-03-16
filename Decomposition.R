@@ -113,7 +113,7 @@ end_year <- 2016 # End year to define time sequence under observation
   
   lplot_decomstand <- ggplot(data = dta_decomp_plot_stand, 
                              aes(x = year, y = Values, color = Effect, group = Effect)) +
-    geom_line(size = 1) +
+    geom_line() +
     labs(#title = "Development of various Greenhouse Gas Emissions",
       x = "Year",
       y = paste0("Base ", base_year, " = 100"),
@@ -130,6 +130,7 @@ end_year <- 2016 # End year to define time sequence under observation
   dta_decomp_plot <- dta_decomp %>% filter(ISIC_Name == 'Total Manufacturing') %>%
     select(year, scale, techn, comp, normalized_ghg) %>%
     pivot_longer(cols = scale:normalized_ghg, names_to = 'Effect', values_to = 'Values')
+  dta_decomp_plot$Effect <- factor(dta_decomp_plot$Effect, levels = c("normalized_ghg", "scale", "comp", "techn"))
 
   lplot_decom <- ggplot(data = dta_decomp_plot, aes(x = year, y = Values, color = Effect, group = Effect)) +
     geom_line() +
@@ -137,11 +138,11 @@ end_year <- 2016 # End year to define time sequence under observation
       x = "Year",
       y = paste0("Base ", base_year, " = 100"),
       color = NULL) +
-    #scale_colour_manual(values = c("GHG" = "blue", "Scale" = "black", "Composition" = "green", "Technique" = "red"),
-    #                    labels = c("GHG", "Scale", "Composition", "Technique")) +
-    scale_colour_manual(values = c("blue", "black", "green", "red"),
-                        labels = c("Composition", "GHG", "Scale", "Technique")) +
-    theme(legend.position = c(.15, .22))
+    scale_colour_manual(values = c("black", "green", "blue", "red"), # Ensure this matches the new order
+                        labels = c("CO² Emissions", "Scale", "Composition", "Technique")) + # Labels in the new order
+    theme_classic() +
+    theme(legend.position = c(.15, .22),
+          panel.grid.major.y = element_line(color = "#8B8878"))
   lplot_decom
 }
 
@@ -181,6 +182,8 @@ end_year <- 2016 # End year to define time sequence under observation
       scale_x_discrete(breaks = year_breaks) +
       scale_colour_discrete(breaks = legend_titles) +
       labs(x=NULL, y = "Base 2001 = 100") +
+      theme_classic() +
+      theme(panel.grid.major.y = element_line(color = "#8B8878"))
       guides(size = FALSE)
   }
   
@@ -206,7 +209,7 @@ end_year <- 2016 # End year to define time sequence under observation
 }
 "
 Technique Effect is positive for all industries,
-Scale Effect differs substantially by industry, see change in Output(real output)
+Scale Effect differs by industry, see change in Output(real output)
 -> Chemicals, Food and Machinery are large drivers of Scale
 Composition for all negative
 
