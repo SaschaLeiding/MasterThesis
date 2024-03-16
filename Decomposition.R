@@ -50,6 +50,36 @@ end_year <- 2016 # End year to define time sequence under observation
   attr(dta_decomp[[ghg]], 'label') <- "tons Emissions per 1,000 DKK"
 }
 
+# Trends in Output, Electricity & Pollution Emissions - 'Landscape' 8.00 x 6.00
+{
+  dta_manufacturing_plot <- dta_decomp %>% 
+    filter(ISIC_Name == 'Total Manufacturing') %>%
+    mutate(Fossil_prod = 1 - RE_share) %>%
+    select(year, realoutput, #GHGinclBiomass,
+           CO2Total, #SO2, NOx, PM10, PM2.5, NMVOC
+           Fossil_prod, CO2ElectricityHeat, UseElectricity) %>%
+    pivot_longer(cols = realoutput:UseElectricity, values_to = 'Value', names_to = 'Category') %>%
+    group_by(Category) %>%
+    mutate(normalized_Value = Value/ Value[year == base_year] * 100) %>%
+    ungroup()
+  
+  lplot_manufacturing <- ggplot(data = dta_manufacturing_plot, aes(x = year, y = normalized_Value, color = Category, group = Category)) +
+    geom_line() +
+    labs(#title = "Development of various Greenhouse Gas Emissions",
+      x = "Year",
+      y = paste0("Base ", base_year, " = 100"),
+      color = NULL) +
+    scale_colour_manual(values = c("#FF0000", "#00FFFF", "#669900", "#CC3399", "#330099"),
+                        labels = c("CO² Electricity", "CO² Total",
+                                   "Electricity from non-RE", "Real Output", "Electricity Consumption")) +
+    theme_classic() +
+    theme(legend.position = c(.15, .22),
+          #panel.background = element_rect(fill = "#FFFFFF"),
+          panel.grid.major.y = element_line(color = "#8B8878"))
+  
+  lplot_manufacturing
+}
+
 # Trends in Manufacturing Pollution Emissions - 'Landscape' 8.00 x 6.00
 {
   dta_emissions_plot <- dta_decomp %>% 

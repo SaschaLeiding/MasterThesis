@@ -434,7 +434,10 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
                  mutate(across(3:ncol(.), as.numeric, .names="Heat_{.col}"))),
               join_by(country == country, year == year)) %>%
     select(country, year, starts_with("Elect_"), starts_with("Heat_")) %>%
-    mutate(across(is.numeric, ~.x*1000000))
+    mutate(across(is.numeric, ~.x*1000000),
+           RE_prod = Elect_Hydro + Elect_Geothermal + Elect_Wind + Elect_SolarThermal +
+             Elect_Solar + Elect_Marine + Elect_Biomass + Elect_Waste,
+           RE_share = RE_prod/Elect_Total)
   
   dta_electricityheat <- ElectricityHeat_Production %>%
     left_join(Electricity_Price,
@@ -788,21 +791,6 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
                         EURUSD = Germany)),
               join_by(year == year)) %>%
     mutate(across(starts_with('FIT'), ~.x*DKKUSD))
-
-  testtt <- dta_analysis %>% select(year, NACE_Name, #UseElectricity,
-                                    UseElectricityShare,
-                                    starts_with('Elect_')) %>%
-    filter(!is.na(NACE_Name)) %>%
-    # Calculate Share of Fuel of Total
-    group_by(year) %>% # QQ = is necessary to group???
-    mutate(across(starts_with('Elect'), ~.x/Elect_Total, .names="Share{.col}")) %>%
-    select(!c("Elect_Hydro", "Elect_Geothermal", "Elect_Wind","Elect_SolarThermal",
-              "Elect_Solar", "Elect_Marine", "Elect_Biomass", "Elect_Waste")) %>%
-    mutate(across(starts_with('ShareElect'), ~.x*UseElectricityShare, .names="Tot{.col}"),
-           across(starts_with('TotShareElect'), ~.x*Elect_Total, .names="Exp{.col}")) %>%
-    rename_with(~gsub("ExpTotShareElect_", "Exposure_", .x), starts_with("ExpTotShareElect_"))
-    
-  
 }
 
 # Save the Data
