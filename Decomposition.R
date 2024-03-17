@@ -81,7 +81,7 @@ end_year <- 2016 # End year to define time sequence under observation
   lplot_manufacturing
 }
 
-# Trends in Pollution Emissions - 'Landscape' 8.00 x 6.00
+# NOTUSED - Trends in Pollution Emissions - 'Landscape' 8.00 x 6.00
 {
   dta_emissions_plot <- dta_decomp %>% 
     filter(ISIC_Name == 'Total Manufacturing') %>%
@@ -106,7 +106,77 @@ end_year <- 2016 # End year to define time sequence under observation
   lplot_emissions
 }
 
-# Line Plot of the decomposition - standard depiction - 'Landscape' 8.00 x 6.00
+# Barplot for Emissions per Industry #- 'Landscape' 8.00 x 6.00
+{
+  dta_emissions_barplot <- dta_analysis %>% 
+    filter(year >= base_year & year <= end_year) %>%
+    filter(NACE_Name != 'Total Manufacturing' & !is.na(NACE_Name)) %>%
+    select(year, NACE_Name, CO2ElectricityHeat)
+  
+  bplot_emissions <- ggplot(data = dta_emissions_barplot,
+                            aes(x = year, y = CO2ElectricityHeat, fill = NACE_Name)) +
+    geom_bar(stat = "identity", position = "stack") +
+    labs(x = "Year", y = "CO² Electricity", fill = "Industry") +
+    scale_y_continuous(expand = c(0, 0)) +
+    theme(legend.position = "bottom",
+          legend.title = element_blank()) +
+    theme_classic() +
+    theme(legend.position = "bottom",
+          legend.title = element_blank())+
+    guides(fill = guide_legend(ncol = 3, byrow = TRUE))
+  bplot_emissions
+}
+
+# Barplot for energy Sources in Electricity mix #- 'Landscape' 8.00 x 6.00
+{
+  dta_electricity_barplot <- dta_analysis %>% 
+    filter(year >= base_year & year <= end_year) %>%
+    filter(NACE_Name == 'Total Manufacturing') %>%
+    mutate(across(starts_with('Elect_'), ~.x/Elect_Total, .names="Share{.col}"),
+           ShareElect_Fossil = 1 - RE_share) %>%
+    select(year, starts_with('ShareElect_')) %>%
+    select(!ShareElect_Total) %>%
+    pivot_longer(cols = starts_with('ShareElect_'),
+                 names_to = 'Electricity',
+                 values_to = 'Share') %>%
+    mutate(Electricity = str_replace(Electricity, "ShareElect_", ""),
+           Electricity = factor(Electricity,
+                                levels = c("Fossil","Wind", "Marine", "Hydro", "Waste",
+                                           "Solar", "SolarThermal", "Geothermal",
+                                           "Biomass")))
+    
+  
+  bplot_electricity <- ggplot(data = dta_electricity_barplot,
+                            aes(x = year, y = Share, fill = Electricity)) +
+    geom_bar(stat = "identity", position = "stack") +
+    labs(x = "Year", y = "Share in Electricity mix", fill = "Source") +
+    scale_y_continuous(expand = c(0, 0)) +
+    scale_fill_manual(values = c("Fossil" = "#CC6600",
+                                 "Wind" = "#FF3399",
+                                 "Marine" = "#0000FF",
+                                 "Hydro" = "#33CCFF",
+                                 "Waste" = "#339900",
+                                 "Solar" = "#FFFF33",
+                                 "SolarThermal" = "#CC9933",
+                                 "Geothermal" = "#CC66FF",
+                                 "Biomass" = "#00FF99")) +
+    theme_classic() +
+    theme(legend.position = "bottom",
+          legend.title = element_blank())+
+    guides(fill = guide_legend(ncol = 3, byrow = TRUE))
+  bplot_electricity
+}
+
+# Combine barplot: 'emissions' with 'electricity' - 'Landscape' 13.33 x 7.00
+{
+  combined_barplots <- bplot_emissions + bplot_electricity #+ 
+    #plot_layout(guides = "collect") & 
+    #theme(legend.position = "bottom",
+     #     legend.title = element_blank())
+  combined_barplots
+}
+
+# NOTUSED - Line Plot of the decomposition - standard depiction - 'Landscape' 8.00 x 6.00
 {
   dta_decomp_plot_stand <- dta_decomp %>% filter(ISIC_Name == 'Total Manufacturing') %>%
     select(year, scale, scale_comp_techn, scale_comp) %>%
