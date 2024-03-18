@@ -80,26 +80,45 @@ testtt <- dta_totalexposure %>%
   ungroup()
 
 # Run Fixed_Effects Estimation
-#{
-  model_fe <- felm(envregulation ~ norm_Exposure + norm_ElectPrice | # Model Variable
+{
+  # Pooled OLS
+  model_simple <- lm(envregulation ~ norm_Exposure  + norm_ElectPrice , data = testtt)
+  summary(model_simple)
+  
+  # Fixed Effects with only FIT Exposure and year FE
+  model_fe_simple <- felm(envregulation ~ norm_Exposure | # Model Variable
+                        year | # Fixed Effects
+                        0 | # Instrument
+                        NACE_Name, # Variables for Cluster-robust Standard errors
+                      data = testtt, cmethod = 'cgm2')
+  summary(model_fe_simple)
+  
+  # Fixed Effects with FIT Exposure & Electricity and year FE
+  model_fe_full <- felm(envregulation ~ norm_Exposure + norm_ElectPrice | # Model Variable
                      year | # Fixed Effects
                      0 | # Instrument
                      NACE_Name, # Variables for Cluster-robust Standard errors
                    data = testtt, cmethod = 'cgm2')
-  summary(model_fe)
-  model_simple <- lm(envregulation ~ norm_Exposure  + norm_ElectPrice , data = testtt)
-  summary(model_simple)
-#}
+  summary(model_fe_full)
+  
+  # Fixed Effects with FIT Exposure & Electricity and year and sector FE
+  model_doublefe_full <- felm(envregulation ~ norm_Exposure + norm_ElectPrice | # Model Variable
+                          year + NACE_Name| # Fixed Effects
+                          0 | # Instrument
+                          NACE_Name, # Variables for Cluster-robust Standard errors
+                        data = testtt, cmethod = 'cgm2')
+  summary(model_doublefe_full)
+}
   
 # Export to LATEX
 {
-  stargazer(model_fe, model_simple, 
+  stargazer(model_simple, model_fe_simple, model_fe_full, model_doublefe_full, 
             title="Comparison of Model Results", 
             header=FALSE, 
             type="latex", 
             model.numbers=TRUE, 
-            column.labels=c("(1)", "(2)"), 
-            covariate.labels=c("Normalized Exposure", "Normalized Electricity Price"),
+            column.labels=c("(1)", "(2)", "(3)", "(4)"), 
+            covariate.labels=c("Exposure", "Electricity Costs"),
             omit.stat=c("LL", "ser", "f"), 
             align=TRUE)
 }
