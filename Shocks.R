@@ -36,15 +36,16 @@ end_year <- 2016
            chngghg = !!sym(ghg)/(!!sym(ghg))[year==base_year],
            chngwages = wage_manuf/wage_manuf[year==base_year],
            envregulation =  ((chngfirmEntry*chngwages)/chngghg)*100) %>%
-    select(ISIC_Name, NACE_Name, year, realoutput, firmEntry, wage_manuf, CompEmployees, Employees,!!sym(ghg),
-           envregulation) %>%
+    #select(ISIC_Name, NACE_Name, year, realoutput, firmEntry, wage_manuf, CompEmployees, Employees,!!sym(ghg),
+    #       envregulation) %>%
     ungroup()
 }
 
 # Plot for Chemicals, Food, Electrical (ISIC) - 'Landscape' 8.00 x 6.00
 {
   dta_env_plot <- dta_shocks %>%
-    filter(ISIC_Name == 'Total Manufacturing' & #%in% c("Chemicals", "Food, beverages, tobacco", "Machinery and equipment") & 
+    filter(#ISIC_Name == 'Total Manufacturing' & 
+             ISIC_Name %in% c('Total Manufacturing',"Chemicals", "Food, beverages, tobacco", "Machinery and equipment") & 
              year >= base_year & year <= end_year) %>%
     select(ISIC_Name, year, envregulation) 
   
@@ -56,6 +57,7 @@ end_year <- 2016
       y = paste0("Base ", base_year, " = 100"),
       color = NULL) +
     scale_x_continuous(breaks = year_breaks) +
+    theme_classic() +
     theme(legend.position = c(.15, .78))
   lplot_env
 }

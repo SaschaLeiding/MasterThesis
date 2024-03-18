@@ -111,11 +111,15 @@ end_year <- 2016 # End year to define time sequence under observation
   dta_emissions_barplot <- dta_analysis %>% 
     filter(year >= base_year & year <= end_year) %>%
     filter(NACE_Name != 'Total Manufacturing' & !is.na(NACE_Name)) %>%
-    select(year, NACE_Name, CO2ElectricityHeat)
+    select(year, NACE_Name, CO2ElectricityHeat, starts_with("elect"))
   
   bplot_emissions <- ggplot(data = dta_emissions_barplot,
                             aes(x = year, y = CO2ElectricityHeat, fill = NACE_Name)) +
     geom_bar(stat = "identity", position = "stack") +
+  #  geom_line(data = (dta_emissions_barplot %>%
+  #                      filter(NACE_Name == "Basic Metals") %>%
+  #                      mutate(normal_electFinalprice = electFinalprice/electFinalprice[year == base_year])),
+  #            aes(x = year, y = normal_electFinalprice)) +
     labs(x = "Year", y = "CO² Electricity", fill = "Industry") +
     scale_y_continuous(expand = c(0, 0)) +
     theme(legend.position = "bottom",
@@ -223,10 +227,10 @@ end_year <- 2016 # End year to define time sequence under observation
   dta_technique <- dta_decomp %>% 
     filter(classsystem == 'ISIC') %>% 
     select(ISIC_Name, year, techn, scale, comp, scale_comp_techn) %>%
-    mutate(line_size = ifelse(ISIC_Name == "Total Manufacturing", 1, 0.5)) #%>% 
-    #filter(ISIC_Name %in% c("Food, beverages, tobacco","Coke, refined petroleum, fuels",
-     #                       "Chemicals","Other non-metallic minerals","Machinery and equipment",
-      #                      "Total Manufacturing"))
+    mutate(line_size = ifelse(ISIC_Name == "Total Manufacturing", 1, 0.5)) %>% 
+    filter(ISIC_Name %in% c("Food, beverages, tobacco","Coke, refined petroleum, fuels",
+                            "Chemicals","Other non-metallic minerals","Machinery and equipment",
+                            "Total Manufacturing"))
   
   # Legend Titles
   {

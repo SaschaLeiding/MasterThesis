@@ -7,10 +7,12 @@ this Script is to
   #install.packages("tidyverse")
   #install.packages("xtable")
   #install.packages("lfe")
+  #install.packages("stargazer")
   
   library(tidyverse)
   library(xtable)
   library(lfe)
+  library(stargazer)
 }
 
 # Load Data
@@ -24,6 +26,7 @@ this Script is to
   ghg <- 'CO2ElectricityHeat'
   energy_type <- ifelse(!!sym(ghg) == 'CO2ElectricityHeat', 'realcostEnergyElectricityHeat', 'realcostEnergy')
   y_var <- 'envregulation'
+  base_year <- '2003'
 }
 
 # Plot Fit-Exposure - fit-tariff x energy use per industry
@@ -33,11 +36,11 @@ this Script is to
 # Sum by fuel type of change in Electricity Generation x FIT in given year
 {
   dta_exposure <- dta_policy %>%
-    mutate(across(starts_with('Elect_'), ~.x/Elect_Total, .names="Share{.col}")) %>%
+    mutate(across(starts_with('Elect_'), ~.x/Elect_Total, .names="Share{.col}")) %>% # Calc. Electricity Share of each fuel
     select(!c("Elect_Hydro", "Elect_Geothermal", "Elect_Wind","Elect_SolarThermal",
               "Elect_Solar", "Elect_Marine", "Elect_Biomass", "Elect_Waste")) %>%
-    mutate(across(starts_with('ShareElect'), ~.x*UseElectricityShare, .names="Tot{.col}"),
-           across(starts_with('TotShareElect'), ~.x*Elect_Total, .names="Exp{.col}")) %>%
+    mutate(across(starts_with('ShareElect'), ~.x*UseElectricityShare, .names="Tot{.col}"), # multiply Use Share with Fuel Share
+           across(starts_with('TotShareElect'), ~.x*Elect_Total, .names="Exp{.col}")) %>% # Electricity Exposure: multiply exposure in shares with Electricity Production
     rename_with(~gsub("ExpTotShareElect_", "Exposure_", .x), starts_with("ExpTotShareElect_")) %>%
     rename_with(~gsub("^FIT(.+)$", "FIT_\\1", .x), starts_with("FIT"))
   
@@ -63,21 +66,40 @@ this Script is to
     ungroup()
 }
 
-testtt <- dta_totalexposure %>% filter(!is.na(NACE_Name)) %>%
+testtt <- dta_totalexposure %>%
+  filter(!is.na(NACE_Name)) %>%
   filter(NACE_Name != 'Total Manufacturing') %>%
-  select(year, NACE_Name, !!sym(y_var), !!sym(x_var)) %>%
-  mutate(TotalExposure = TotalExposure/1000000)
-testtt <- dta_exposure %>% filter(NACE_Name == 'Total Manufacturing') %>%
-  select(year, UseElectricity, CO2ElectricityHeat)
+  #filter(!(year %in% c(2008,2009))) %>%
+  select(year, NACE_Name, !!sym(y_var), TotalExposure, UseElectricity,
+         electBaseprice, electVATfreeprice, electFinalprice) %>% #electVATfreeprice #electFinalprice
+  group_by(NACE_Name) %>%
+  mutate(TotalExposure = (TotalExposure+0.01)/1000000,
+         CostsElectBaseprice = electBaseprice * UseElectricity,
+         norm_Exposure = (TotalExposure/TotalExposure[year == base_year])*100,
+         norm_ElectPrice = (CostsElectBaseprice/CostsElectBaseprice[year == base_year])*100) %>%
+  ungroup()
 
 # Run Fixed_Effects Estimation
-{
-  model_fe <- felm(envregulation ~ TotalExposure | # Model Variable
-                     year + NACE_Name | # Fixed Effects
+#{
+  model_fe <- felm(envregulation ~ norm_Exposure + norm_ElectPrice | # Model Variable
+                     year | # Fixed Effects
                      0 | # Instrument
-                     0, # Variables for Cluster-robust Standard errors
+                     NACE_Name, # Variables for Cluster-robust Standard errors
                    data = testtt, cmethod = 'cgm2')
   summary(model_fe)
-  model_simple <- lm(envregulation ~ TotalExposure, data = testtt)
+  model_simple <- lm(envregulation ~ norm_Exposure  + norm_ElectPrice , data = testtt)
   summary(model_simple)
+#}
+  
+# Export to LATEX
+{
+  stargazer(model_fe, model_simple, 
+            title="Comparison of Model Results", 
+            header=FALSE, 
+            type="latex", 
+            model.numbers=TRUE, 
+            column.labels=c("(1)", "(2)"), 
+            covariate.labels=c("Normalized Exposure", "Normalized Electricity Price"),
+            omit.stat=c("LL", "ser", "f"), 
+            align=TRUE)
 }
