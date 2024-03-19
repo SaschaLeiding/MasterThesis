@@ -9,9 +9,11 @@ The input for this script is the data 'dta_parameter.rds' from the script
 {
   #install.packages("tidyverse")
   #install.packages("xtable")
+  #install.packages("nleqslv")
   
   library(tidyverse)
   library(xtable)
+  library(nleqslv)
 }
 
 # Load Data
@@ -91,6 +93,32 @@ end_year <- 2016
                 mutate(year = as.character(year)) %>%
                 select(ISIC_Name, NACE_Name, year, envregulation),
               join_by(ISIC_Name == ISIC_Name, NACE_Name == NACE_Name, year == year))
+}
+
+# TEST environment for "nleqslv"
+{
+  # Defining Multivariate function to solve for
+  fn <- function(x) {
+    
+    rate <- x[1] * x[2] - 5
+    shape <- sqrt(x[1] * x[2]^2) - 10
+    
+    return(c(rate, shape))
+  }
+  
+  nleqslv(x=c(0.75, 1.25), # numeric vector with an initial guess of the root of the function # Shapiro choose 0.75 until 1.25
+          fn=fn, #A function of x returning a vector of function values with the same length as the  vector x.
+          global = 'pwldog') 
+}
+
+# Apply algorithm to "nleqslv"
+{
+  # Factors used: Trade_od,s & Emissions Z_o,s, three parameters
+  # Net Exports = countrys exports - imports
+  # from example in 'TEST environment' the x-values are the potential values used in shocks
+  # need to return the wages and firm entry changes that make the equation hold
+  
+  algorithm_data <- d
 }
 
 # Save Data

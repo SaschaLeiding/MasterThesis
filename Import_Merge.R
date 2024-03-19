@@ -67,6 +67,10 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
   INDSTAT_2 <- read_xlsx("./Data/INDSTAT_WorldManuf_ISIC.xlsx", sheet = "OutpGFI", range = "A1:M83882")
   INDSTAT_3 <- read_xlsx("./Data/INDSTAT_WorldManuf_ISIC.xlsx", sheet = "WagesVA", range = "A1:M99504")
   
+  # Load Eurostat Trade data in EUR
+  EUROSTAT_Import <- read_xlsx("./Data/EUROSTAT_Trade_Import.xlsx", sheet = "Sheet 1", range = "A10:E730")
+  EUROSTAT_Export <- read_xlsx("./Data/EUROSTAT_Trade_Export.xlsx", sheet = "Sheet 1", range = "A10:E730")
+  
   # Load OECD Exchange rate from 1,000 USD
   OECDFX <- read_xlsx("./Data/OECD_ExchangeRate.xlsx", range = "C3:Z67")
   
@@ -91,7 +95,7 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
 
 # Define variables for code flexibility
 {
-  ghg <- 'CO2Total' # Greenhouse gas for the analysis to allow flexibility in choice
+  ghg <-'CO2Total'  #'CO2ElectricityHeat' # Greenhouse gas for the analysis to allow flexibility in choice
   varname_ghgintensity <- paste0(ghg, "_intensity")
   base_year <- 2003
 }
@@ -690,77 +694,120 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
       summarise(emission = sum(Emissions, na.rm = TRUE), .groups = "keep")
   }
   
+  # Trade Data - in EURO
+  {
+    # Colnames of EUROSTAT Export & Import
+    {
+      colnames(EUROSTAT_Export)[1] <- 'classif'
+      colnames(EUROSTAT_Import)[1] <- 'classif'
+      colnames(EUROSTAT_Export)[2] <- 'year'
+      colnames(EUROSTAT_Import)[2] <- 'year'
+      colnames(EUROSTAT_Export)[3] <- 'ExportROW'
+      colnames(EUROSTAT_Import)[3] <- 'ImportROW'
+      colnames(EUROSTAT_Export)[4] <- 'ExportEU'
+      colnames(EUROSTAT_Import)[4] <- 'ImportEU'
+      colnames(EUROSTAT_Export)[5] <- 'ExportWorld'
+      colnames(EUROSTAT_Import)[5] <- 'ImportWorld'
+    }
+    
+    dta_trade <- EUROSTAT_Export %>%
+      left_join(EUROSTAT_Import, join_by(classif == classif, year == year)) %>%
+      mutate(across(3:8, as.numeric),
+             NetExportsROW = ExportROW - ImportROW,
+             NetExportsEU = ExportEU - ImportEU,
+             NetExportsWorld = ExportWorld - ImportWorld) %>%
+      #Transform from EUR to DKK
+      left_join((OECDFX %>%
+                  filter(Location %in% c("Euro area (19 countries)", "Denmark")) %>%
+                   pivot_longer(cols = starts_with("20"),
+                                names_to = 'year',
+                                values_to = 'FXrateUSD') %>%
+                   mutate(FXrateUSD = ifelse(year > 2002 & Location == "Euro area (19 countries)",
+                                             as.numeric(FXrateUSD),
+                                             as.numeric(FXrateUSD)/1000)) %>%
+                   pivot_wider(names_from = Location,
+                               values_from = FXrateUSD) %>%
+                   rename(DKKUSD = Denmark,
+                          EURUSD = "Euro area (19 countries)") %>%
+                   mutate(USDEUR = 1/EURUSD) %>%
+                   select(year,DKKUSD, USDEUR)),
+                join_by(year == year)) %>%
+      mutate(across(3:11, ~(.x*USDEUR)*DKKUSD))
+  }
+  
   # Merge Data
-  dta_internat <- rbind(INDSTAT_1, INDSTAT_2, INDSTAT_3) %>% # Create Baseline DF with INDSTAT, as most comprehensive
-    select('Country Description', 'Country Code', Year, 'ISIC Description', 'Table Description...2', Value) %>%
-    rename(country = 'Country Description',
-           countrycode_INDSTAT = 'Country Code',
-           year = Year,
-           INDSTAT_Name = 'ISIC Description') %>%
-    pivot_wider(names_from = 'Table Description...2', values_from = Value) %>%
-    rename(Firms = Establishments,
-           grossFixCap = 'Gross fixed capital formation',
-           totalwages = 'Wages and salaries',
-           VA = 'Value added') %>%
-    mutate(Firms = as.numeric(Firms),
-           Employees = as.numeric(Employees),
-           Output = as.numeric(Output),
-           grossFixCap = as.numeric(grossFixCap),
-           totalwages = as.numeric(totalwages),
-           VA = as.numeric(VA),
-           wage = totalwages/Employees) %>%
-    group_by(country,year) %>%
-    mutate(wage_manuf = if (any(INDSTAT_Name == 'Total manufacturing')) {
-      wage[INDSTAT_Name == 'Total manufacturing']
-    } else {
-      NA_real_ # This ensures that the NA has the same type as wage
-    }) %>%
-    ungroup() %>%
-    
-    # ADD classifications to match with other data
-    left_join((data.frame(classif_ISIC, classif_IEA, classif_INDSTAT)),
-              join_by(INDSTAT_Name== classif_INDSTAT)) %>%
-    
-    # Add Emission data
-    left_join((IEA_emissions %>%
-                 rename('country' = 'Time',
-                        classif = ...2) %>%
-                 select(-starts_with("..")) %>%
-                 fill(country) %>%
-                 mutate(classif = str_remove(classif, " \\[.*")) %>%
-                 pivot_longer(cols = starts_with("20"),
-                              names_to = 'year',
-                              values_to = 'Emissions') %>% # in Million tonnes CO2
-                 mutate(Emissions = Emissions* 1000) %>%
-                 left_join(as.data.frame(cbind(country_IEA, countrycode_IEAINDSTAT)),
-                           join_by(country == country_IEA)) %>%
-                 select(!country)),
-              join_by(classif_IEA == classif,
-                      year == year,
-                      countrycode_INDSTAT == countrycode_IEAINDSTAT)) %>%
-    
-    # Add OECD Exchange rate to USD
-    left_join((OECDFX %>%
-                 filter(Location %in% c("Denmark", "Germany")) %>%
-                 pivot_longer(cols = starts_with("20"),
-                              names_to = 'year',
-                              values_to = 'FXrateUSD') %>%
-                 mutate(FXrateUSD = as.numeric(FXrateUSD)/1000) %>%
-                 pivot_wider(names_from = Location,
-                             values_from = FXrateUSD)%>%
-                 rename(DKKUSD = Denmark,
-                        EURUSD = Germany)), join_by(year == year)) %>%
-    
-    # Add FIT and PPA data
-    left_join((dta_FITPPA %>%
-                 full_join(dta_electricityheat,
-                           join_by(country == country, year == year)) %>%
-                 left_join((as.data.frame(cbind(country_EUROSTAT,countrycode_EUROSTAT))),
-                           join_by(country == country_EUROSTAT)) %>%
-                 drop_na(countrycode_EUROSTAT) %>%
-                 select(!country)),
-              join_by(countrycode_INDSTAT == countrycode_EUROSTAT,
-                      year == year))
+  {
+    dta_internat <- rbind(INDSTAT_1, INDSTAT_2, INDSTAT_3) %>% # Create Baseline DF with INDSTAT, as most comprehensive
+      select('Country Description', 'Country Code', Year, 'ISIC Description', 'Table Description...2', Value) %>%
+      rename(country = 'Country Description',
+             countrycode_INDSTAT = 'Country Code',
+             year = Year,
+             INDSTAT_Name = 'ISIC Description') %>%
+      pivot_wider(names_from = 'Table Description...2', values_from = Value) %>%
+      rename(Firms = Establishments,
+             grossFixCap = 'Gross fixed capital formation',
+             totalwages = 'Wages and salaries',
+             VA = 'Value added') %>%
+      mutate(Firms = as.numeric(Firms),
+             Employees = as.numeric(Employees),
+             Output = as.numeric(Output),
+             grossFixCap = as.numeric(grossFixCap),
+             totalwages = as.numeric(totalwages),
+             VA = as.numeric(VA),
+             wage = totalwages/Employees) %>%
+      group_by(country,year) %>%
+      mutate(wage_manuf = if (any(INDSTAT_Name == 'Total manufacturing')) {
+        wage[INDSTAT_Name == 'Total manufacturing']
+      } else {
+        NA_real_ # This ensures that the NA has the same type as wage
+      }) %>%
+      ungroup() %>%
+      
+      # ADD classifications to match with other data
+      left_join((data.frame(classif_ISIC, classif_IEA, classif_INDSTAT)),
+                join_by(INDSTAT_Name== classif_INDSTAT)) %>%
+      
+      # Add Emission data
+      left_join((IEA_emissions %>%
+                   rename('country' = 'Time',
+                          classif = ...2) %>%
+                   select(-starts_with("..")) %>%
+                   fill(country) %>%
+                   mutate(classif = str_remove(classif, " \\[.*")) %>%
+                   pivot_longer(cols = starts_with("20"),
+                                names_to = 'year',
+                                values_to = 'Emissions') %>% # in Million tonnes CO2
+                   mutate(Emissions = Emissions* 1000) %>%
+                   left_join(as.data.frame(cbind(country_IEA, countrycode_IEAINDSTAT)),
+                             join_by(country == country_IEA)) %>%
+                   select(!country)),
+                join_by(classif_IEA == classif,
+                        year == year,
+                        countrycode_INDSTAT == countrycode_IEAINDSTAT)) %>%
+      
+      # Add OECD Exchange rate to USD
+      left_join((OECDFX %>%
+                   filter(Location %in% c("Denmark", "Germany")) %>%
+                   pivot_longer(cols = starts_with("20"),
+                                names_to = 'year',
+                                values_to = 'FXrateUSD') %>%
+                   mutate(FXrateUSD = as.numeric(FXrateUSD)/1000) %>%
+                   pivot_wider(names_from = Location,
+                               values_from = FXrateUSD)%>%
+                   rename(DKKUSD = Denmark,
+                          EURUSD = Germany)), join_by(year == year)) %>%
+      
+      # Add FIT and PPA data
+      left_join((dta_FITPPA %>%
+                   full_join(dta_electricityheat,
+                             join_by(country == country, year == year)) %>%
+                   left_join((as.data.frame(cbind(country_EUROSTAT,countrycode_EUROSTAT))),
+                             join_by(country == country_EUROSTAT)) %>%
+                   drop_na(countrycode_EUROSTAT) %>%
+                   select(!country)),
+                join_by(countrycode_INDSTAT == countrycode_EUROSTAT,
+                        year == year))
+  }
 }
 
 # Combine NACE, ISIC data, FITPPA and Electricity/HEat Production by fueltype
