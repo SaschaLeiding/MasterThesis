@@ -1302,6 +1302,29 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
     mutate(across(starts_with('FIT'), ~.x*DKKUSD))
 }
 
+# Denmark Input Output table
+{
+  WIOD_DNK <- read_xlsx("./Data/WIOD_DNK.xlsx", range = "A1:BO1802", sheet = "National IO-tables")
+  
+  WIOD_attr <- as.character(unlist(WIOD_DNK[1,]))
+  test_WIOD <- WIOD_DNK[-1,] %>%
+    mutate(across(5:ncol(test_WIOD), as.numeric))
+  
+  for (i in 1:ncol(test_WIOD)) {
+    attr(test_WIOD[[i]], "label") <- WIOD_attr[i]
+  }
+  
+  WIOD_filter <- test_WIOD %>%
+    #filter(str_detect(Code, "^C")) %>%
+    mutate(DomDom = GO-EXP,
+           DomImp = ifelse(Origin == 'Imports', rowSums(select(., 5:ncol(test_WIOD))), NA))
+  
+  test <-WIOD_filter %>% filter(Year == 2003) %>% select(Code,Year, GO, EXP, DomDom, DomImp)
+}
+
+# World Input-Output table
+
+
 # Save the Data
 {
   saveRDS(dta_decomp, file = "./Data/dta_full.rds")
