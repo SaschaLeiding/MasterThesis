@@ -229,9 +229,9 @@ end_year <- 2016 # End year to define time sequence under observation
     select(NACE_Name, year, techn, scale, comp, scale_comp_techn) %>%
     mutate(line_size = ifelse(NACE_Name == "Total Manufacturing", 1, 0.5)) #%>% 
     #filter(NACE_Name %in% c("Food, beverages, tobacco","Coke, petroleum",
-                            "Chemicals and pharmaceuticals",
-                            "Non-metallic mineral","Metal products, electronics, machinery",
-                            "Total Manufacturing"))
+    #                        "Chemicals and pharmaceuticals",
+    #                        "Non-metallic mineral","Metal products, electronics, machinery",
+    #                        "Total Manufacturing"))
   
   # Legend Titles
   {

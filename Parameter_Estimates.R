@@ -387,7 +387,7 @@ end_year <- 2016 # End year to define time sequence under observation
   # Create a Table for LATEX format
   table2 <- xtable(x = (dta_parameter %>%
                           filter(year == base_year & classsystem == 'NACE' & NACE_Name != 'Total Manufacturing') %>%
-                          arrange(ISIC_Code) %>%
+                          arrange(NACE_Code) %>%
                           left_join(dta_US %>% select(NACE_Name, USpollutionelasticity,
                                                       USParetoShape, USParetoSE),
                                     join_by(NACE_Name == NACE_Name)) %>%

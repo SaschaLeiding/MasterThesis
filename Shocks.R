@@ -32,6 +32,7 @@ end_year <- 2016
 # Calculate shocks
 {
   dta_shocks <- dta_parameter %>%
+    distinct() %>%
     group_by(ISIC_Name, NACE_Name) %>%
     mutate(year = as.integer(year),
            chngfirmEntry = firmEntry/firmEntry[year==base_year],
@@ -93,6 +94,12 @@ end_year <- 2016
                 mutate(year = as.character(year)) %>%
                 select(ISIC_Name, NACE_Name, year, envregulation),
               join_by(ISIC_Name == ISIC_Name, NACE_Name == NACE_Name, year == year))
+}
+
+# Data for MATLAB version
+{
+  dta_ROW <- dta_internat %>%
+    filter(country == "Germany" & year >= base_year & year <= end_year)
 }
 
 # TEST environment for "nleqslv"

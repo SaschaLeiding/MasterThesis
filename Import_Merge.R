@@ -1259,7 +1259,8 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
                  rename(DKKUSD = Denmark)), join_by(year == year)) %>%
     mutate(OutputWorld = (OutputWorld*DKKUSD)/1000000,
            OutputDNK = (OutputDNK*DKKUSD)/1000000) %>%
-    select(NACE_Name, year, OutputWorld, OutputDNK)
+    select(NACE_Name, year, OutputWorld, OutputDNK) %>%
+    filter(!is.na(OutputDNK))
   
   # Comparison of INDSTAT versus Statbank DK by sector
   dta_manufcomp <- dta_internat %>%
