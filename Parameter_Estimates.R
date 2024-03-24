@@ -382,17 +382,17 @@ end_year <- 2016 # End year to define time sequence under observation
                                            5.147, 6.442))
 }
 
-# Table 2: Exporting all Parameters for base year to LATEX (ISIC)
+# Table 2: Exporting all Parameters for base year to LATEX (NACE)
 {
   # Create a Table for LATEX format
   table2 <- xtable(x = (dta_parameter %>%
-                          filter(year == base_year & classsystem == 'ISIC' & ISIC_Name != 'Total Manufacturing') %>%
+                          filter(year == base_year & classsystem == 'NACE' & NACE_Name != 'Total Manufacturing') %>%
                           arrange(ISIC_Code) %>%
-                          left_join(dta_US %>% select(ISIC_Name, USpollutionelasticity,
+                          left_join(dta_US %>% select(NACE_Name, USpollutionelasticity,
                                                       USParetoShape, USParetoSE),
-                                    join_by(ISIC_Name == ISIC_Name)) %>%
-                          select(ISIC_Name, tonsPollCost,
-                                 pollutionelasticityISIC3,
+                                    join_by(NACE_Name == NACE_Name)) %>%
+                          select(NACE_Name, tonsPollCost,
+                                 pollutionelasticityNACE3,
                                  inputshare, elasticitysubstitution,
                                  USParetoShape, USParetoSE)),
                    digits = c(2,2,2,4,2,2,2,2)) # Set number of decimals per column
@@ -407,20 +407,20 @@ end_year <- 2016 # End year to define time sequence under observation
   print(table2, include.rownames=FALSE)
 }
 
-# Table 3: Exporting all Pollution Elasticities (ISIC)
+# Table 3: Exporting all Pollution Elasticities (NACE)
 {
   # Create a Table for LATEX format
   table3 <- xtable(x = (dta_parameter %>%
-                          filter(year == base_year & classsystem == 'ISIC' & ISIC_Name != 'Total Manufacturing') %>%
-                          arrange(ISIC_Code) %>%
-                          left_join(dta_US %>% select(ISIC_Name, USpollutionelasticity),
-                                    join_by(ISIC_Name == ISIC_Name)) %>%
-                          left_join(dta_GER %>% select(ISIC_Name, GERpollutionelasticity),
-                                    join_by(ISIC_Name == ISIC_Name)) %>%
-                          select(ISIC_Name, GERpollutionelasticity,
+                          filter(year == base_year & classsystem == 'NACE' & NACE_Name != 'Total Manufacturing') %>%
+                          arrange(NACE_Code) %>%
+                          left_join(dta_US %>% select(NACE_Name, USpollutionelasticity),
+                                    join_by(NACE_Name == NACE_Name)) %>%
+                          left_join(dta_GER %>% select(NACE_Name, GERpollutionelasticity),
+                                    join_by(NACE_Name == NACE_Name)) %>%
+                          select(NACE_Name, GERpollutionelasticity,
                                  pollutionelasticityNACE1,
-                                 pollutionelasticityISIC2, pollutionelasticityISIC3,
-                                 pollutionelasticityISICFinCri)),
+                                 pollutionelasticityNACE2, pollutionelasticityNACE3,
+                                 pollutionelasticityNACEFinCri)),
                    digits = c(2,2,4,4,4,4,4)) # Set number of decimals per column
   
   # Change Column Names in LATEX table

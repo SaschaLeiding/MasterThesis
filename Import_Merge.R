@@ -61,11 +61,14 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
   # Loading International data
   # Load IEA-Emission Data in million tonnes CO2
   IEA_emissions <- read_xlsx("./Data/IEA_Emissions.xlsx", range = "A4:AQ933")
+  IEA_emissions <- IEA_emissions[-1,]
   
   # Load INDSTAT Data in USD
   INDSTAT_1 <- read_xlsx("./Data/INDSTAT_WorldManuf_ISIC.xlsx", sheet = "EmplEstabl", range = "A1:M97980")
   INDSTAT_2 <- read_xlsx("./Data/INDSTAT_WorldManuf_ISIC.xlsx", sheet = "OutpGFI", range = "A1:M83882")
   INDSTAT_3 <- read_xlsx("./Data/INDSTAT_WorldManuf_ISIC.xlsx", sheet = "WagesVA", range = "A1:M99504")
+  # Load more detailed data
+  INDSTAT_detail <- read_xlsx("./Data/INDSTAT_Output_detail.xlsx", range = "A1:M88932")
   
   # Load Eurostat Trade data in EUR
   EUROSTAT_Import <- read_xlsx("./Data/EUROSTAT_Trade_Import.xlsx", sheet = "Sheet 1", range = "A10:E730")
@@ -455,6 +458,144 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
   rm(ElectricityHeat_Production)
 }
 
+# Trade Data - from EUR to DKK
+{
+  # Classification Names
+  {
+    trade_classif <- c("Food products", "Beverages", "Tobacco products",
+                       "Textiles", "Wearing apparel", "Leather and related products",
+                       "Wood and of products of wood and cork, except furniture; articles of straw and plaiting materials",
+                       "Paper and paper products", "Printing and recording services",
+                       "Coke and refined petroleum products",
+                       "Chemicals and chemical products","Basic pharmaceutical products and pharmaceutical preparations",                                           
+                       "Rubber and plastic products",                                                                             
+                       "Other non-metallic mineral products",
+                       "Basic metals",
+                       "Fabricated metal products, except machinery and equipment",
+                       "Computer, electronic and optical products", "Electrical equipment",
+                       "Machinery and equipment n.e.c.",
+                       "Motor vehicles, trailers and semi-trailers",
+                       "Other transport equipment",
+                       "Furniture",
+                       "Other manufactured goods")
+    ISIC_Name <- c("Food, beverages, tobacco", "Food, beverages, tobacco", "Food, beverages, tobacco",
+                        "Textiles, apparel, fur, leather", "Textiles, apparel, fur, leather", "Textiles, apparel, fur, leather",
+                        "Wood products",
+                        "Paper and publishing", "Paper and publishing",
+                        "Coke, refined petroleum, fuels",
+                        "Chemicals", "Chemicals",
+                        "Rubber and plastics",
+                        "Other non-metallic minerals",    
+                        "Basic metals",
+                        "Fabricated metals",
+                        "Office, computing, electrical", "Office, computing, electrical",
+                        "Machinery and equipment",
+                        "Motor vehicles, trailers",
+                        "Other transport equipment",
+                        "Furniture, other, recycling",
+                        "Medical, precision, and optical")
+    NACE_Name <- c("Food, beverages, tobacco", "Food, beverages, tobacco", "Food, beverages, tobacco",
+                        "Textiles, wearing apparel, leather", "Textiles, wearing apparel, leather", "Textiles, wearing apparel, leather",
+                        "Wood products",                         
+                        "Pulp, paper, publishing", "Pulp, paper, publishing",
+                        "Coke, petroleum",
+                        "Chemicals and pharmaceuticals", "Chemicals and pharmaceuticals",
+                        "Rubber and plastics",
+                        "Non-metallic minerals",
+                        "Basic Metals",
+                        "Metal products, electronics, machinery", "Metal products, electronics, machinery",
+                        "Metal products, electronics, machinery",
+                        "Metal products, electronics, machinery",
+                        "Vehicles, other transport, n.e.c.",
+                        "Vehicles, other transport, n.e.c.",
+                        "Vehicles, other transport, n.e.c.",
+                        "Metal products, electronics, machinery")
+    dta_tradename <- as.data.frame(cbind(trade_classif, ISIC_Name, NACE_Name))
+  }
+  
+  # Colnames of EUROSTAT Export & Import
+  {
+    colnames(EUROSTAT_Export)[1] <- 'classif'
+    colnames(EUROSTAT_Import)[1] <- 'classif'
+    colnames(EUROSTAT_Export)[2] <- 'year'
+    colnames(EUROSTAT_Import)[2] <- 'year'
+    colnames(EUROSTAT_Export)[3] <- 'ExportROW'
+    colnames(EUROSTAT_Import)[3] <- 'ImportROW'
+    colnames(EUROSTAT_Export)[4] <- 'ExportEU'
+    colnames(EUROSTAT_Import)[4] <- 'ImportEU'
+    colnames(EUROSTAT_Export)[5] <- 'ExportWorld'
+    colnames(EUROSTAT_Import)[5] <- 'ImportWorld'
+  }
+  
+  # Create Trade Data of Denmark
+  {
+    dta_trade_interim <- EUROSTAT_Export %>%
+      left_join(EUROSTAT_Import, join_by(classif == classif, year == year)) %>%
+      mutate(across(3:8, as.numeric),
+             NetExportsROW = ExportROW - ImportROW,
+             NetExportsEU = ExportEU - ImportEU,
+             NetExportsWorld = ExportWorld - ImportWorld) %>%
+      #Transform from EUR to DKK
+      left_join((OECDFX %>%
+                   filter(Location %in% c("Euro area (19 countries)", "Denmark")) %>%
+                   pivot_longer(cols = starts_with("20"),
+                                names_to = 'year',
+                                values_to = 'FXrateUSD') %>%
+                   mutate(FXrateUSD = ifelse(year > 2002 & Location == "Euro area (19 countries)",
+                                             as.numeric(FXrateUSD),
+                                             as.numeric(FXrateUSD)/1000)) %>%
+                   pivot_wider(names_from = Location,
+                               values_from = FXrateUSD) %>%
+                   rename(DKKUSD = Denmark,
+                          EURUSD = "Euro area (19 countries)") %>%
+                   mutate(USDEUR = 1/EURUSD) %>%
+                   select(year,DKKUSD, USDEUR)),
+                join_by(year == year)) %>%
+      mutate(across(3:11, ~(.x*USDEUR)*DKKUSD)) %>%
+      select(-c("USDEUR", "DKKUSD")) %>%
+      left_join(dta_tradename, join_by(classif == trade_classif))
+  }
+  
+  # Create Trade NACE & ISIC Data
+  {
+    # Create NACE Data
+    dta_trade_NACE <- dta_trade_interim %>%
+      #select(!ISIC_Name) %>%
+      filter(!is.na(NACE_Name)) %>%
+      group_by(year, NACE_Name) %>%
+      summarise(across(.cols = where(is.numeric), .fns = sum, na.rm = TRUE),.groups = 'drop') %>%
+      mutate(ISIC_Name = NA)
+      
+    
+    # Create ISIC Data
+    dta_trade_ISIC <- dta_trade_interim %>%
+      filter(!is.na(ISIC_Name)) %>%
+      group_by(year, ISIC_Name) %>%
+      summarise(across(.cols = where(is.numeric), .fns = sum, na.rm = TRUE),.groups = 'drop') %>%
+      mutate(NACE_Name = NA)
+  }
+  
+  # Create 'Total Manufacturing'
+  {
+    dta_tradeTotal <- dta_trade_interim %>%
+      filter(!is.na(ISIC_Name)) %>%
+      group_by(year) %>%
+      summarise(across(.cols = where(is.numeric), .fns = sum, na.rm = TRUE), .groups = 'drop') %>%
+      mutate(#classif = 'Total Manufacturing',
+             ISIC_Name = 'Total Manufacturing',
+             #       Class_PPI = 'C Manufacturing',
+             NACE_Name = 'Total Manufacturing')
+  }
+  
+  # Merge Trade data
+  dta_trade <- rbind(dta_tradeTotal, dta_trade_ISIC, dta_trade_NACE)
+  
+  rm(dta_trade_interim)
+  rm(dta_trade_ISIC)
+  rm(dta_trade_NACE)
+  rm(dta_tradeTotal)
+}
+
 # Calculate Total of Manufacturing #ENERGY USE appended through 'cost_ener_use', thus Statbank data
 {
   dta_total <- emissions %>% # Take 'Air Emission Accounts' as Base data
@@ -477,7 +618,6 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
                 filter(classif == 'C Manufacturing') %>%
                 select(!classif), 
               join_by(year == year))
-
 }
 
 # Merge Emissions, Output and PPI data
@@ -539,6 +679,7 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
   dta_NACE <- dta_NACEsum %>%
     full_join(dta_decomp %>%
                 filter(!is.na(NACE_Code) & !(NACE_Code %in% NACEcode_sum))) %>%
+    left_join(dta_trade, join_by(NACE_Name == NACE_Name, year == year)) %>%
     mutate(ISIC_Code = NA,
            ISIC_Name = NA,
            classsystem = 'NACE') %>%
@@ -565,6 +706,7 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
   dta_ISIC <- dta_ISICsum %>%
     full_join(dta_decomp %>%
                 filter(!is.na(ISIC_Code) & !(ISIC_Code %in% ISICcode_sum))) %>%
+    left_join(dta_trade, join_by(ISIC_Name == ISIC_Name, year == year)) %>%
     mutate(NACE_Code = NA,
            NACE_Name = NA,
            classsystem = 'ISIC') %>%
@@ -595,6 +737,24 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
                       "Motor vehicles, trailers",
                       "Other transport equipment",
                       "Medical, precision, and optical")
+    
+    classif_NACE <- c("Total Manufacturing", 
+                      "Food, beverages, tobacco", "Food, beverages, tobacco",
+                      "Textiles, wearing apparel, leather", "Textiles, wearing apparel, leather", "Textiles, wearing apparel, leather",
+                      "Pulp, paper, publishing", "Pulp, paper, publishing",
+                      "Chemicals and pharmaceuticals", 
+                      "Non-metallic minerals",
+                      "Metal products, electronics, machinery", "Metal products, electronics, machinery", "Metal products, electronics, machinery",
+                      "Metal products, electronics, machinery",
+                      "Vehicles, other transport, n.e.c.", "Vehicles, other transport, n.e.c.",
+                      "Wood products",
+                      "Coke, petroleum",
+                      "Rubber and plastics",
+                      "Basic Metals",                  
+                      "Metal products, electronics, machinery",
+                      "Vehicles, other transport, n.e.c.",
+                      "Vehicles, other transport, n.e.c.",
+                      "Vehicles, other transport, n.e.c.")
     
     classif_IEA <- c("Manufacturing",
                      "Food and tobacco", "Food and tobacco",
@@ -675,7 +835,6 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
                               578, 616, 620, 642, 643, 682, 686, 688, 702, 703, 705, 
                               710, 724, 752, 756, 792, 826, 840, 894)
   }
-  IEA_emissions <- IEA_emissions[-1,]
   
   # Calculate emissions for Total Manufacturing because in Base ISIC 19 (manuf of Fuel) is excluded
   {
@@ -694,50 +853,9 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
       summarise(emission = sum(Emissions, na.rm = TRUE), .groups = "keep")
   }
   
-  # Trade Data - in EURO
+  # Merge aggregated INDTSTAT Manufacturing Data
   {
-    # Colnames of EUROSTAT Export & Import
-    {
-      colnames(EUROSTAT_Export)[1] <- 'classif'
-      colnames(EUROSTAT_Import)[1] <- 'classif'
-      colnames(EUROSTAT_Export)[2] <- 'year'
-      colnames(EUROSTAT_Import)[2] <- 'year'
-      colnames(EUROSTAT_Export)[3] <- 'ExportROW'
-      colnames(EUROSTAT_Import)[3] <- 'ImportROW'
-      colnames(EUROSTAT_Export)[4] <- 'ExportEU'
-      colnames(EUROSTAT_Import)[4] <- 'ImportEU'
-      colnames(EUROSTAT_Export)[5] <- 'ExportWorld'
-      colnames(EUROSTAT_Import)[5] <- 'ImportWorld'
-    }
-    
-    dta_trade <- EUROSTAT_Export %>%
-      left_join(EUROSTAT_Import, join_by(classif == classif, year == year)) %>%
-      mutate(across(3:8, as.numeric),
-             NetExportsROW = ExportROW - ImportROW,
-             NetExportsEU = ExportEU - ImportEU,
-             NetExportsWorld = ExportWorld - ImportWorld) %>%
-      #Transform from EUR to DKK
-      left_join((OECDFX %>%
-                  filter(Location %in% c("Euro area (19 countries)", "Denmark")) %>%
-                   pivot_longer(cols = starts_with("20"),
-                                names_to = 'year',
-                                values_to = 'FXrateUSD') %>%
-                   mutate(FXrateUSD = ifelse(year > 2002 & Location == "Euro area (19 countries)",
-                                             as.numeric(FXrateUSD),
-                                             as.numeric(FXrateUSD)/1000)) %>%
-                   pivot_wider(names_from = Location,
-                               values_from = FXrateUSD) %>%
-                   rename(DKKUSD = Denmark,
-                          EURUSD = "Euro area (19 countries)") %>%
-                   mutate(USDEUR = 1/EURUSD) %>%
-                   select(year,DKKUSD, USDEUR)),
-                join_by(year == year)) %>%
-      mutate(across(3:11, ~(.x*USDEUR)*DKKUSD))
-  }
-  
-  # Merge Data
-  {
-    dta_internat <- rbind(INDSTAT_1, INDSTAT_2, INDSTAT_3) %>% # Create Baseline DF with INDSTAT, as most comprehensive
+    dta_aggrINDTSTAT <- rbind(INDSTAT_1, INDSTAT_2, INDSTAT_3) %>% # Create Baseline DF with INDSTAT, as most comprehensive
       select('Country Description', 'Country Code', Year, 'ISIC Description', 'Table Description...2', Value) %>%
       rename(country = 'Country Description',
              countrycode_INDSTAT = 'Country Code',
@@ -755,66 +873,409 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
              totalwages = as.numeric(totalwages),
              VA = as.numeric(VA),
              wage = totalwages/Employees) %>%
-      group_by(country,year) %>%
-      mutate(wage_manuf = if (any(INDSTAT_Name == 'Total manufacturing')) {
-        wage[INDSTAT_Name == 'Total manufacturing']
-      } else {
-        NA_real_ # This ensures that the NA has the same type as wage
-      }) %>%
-      ungroup() %>%
-      
       # ADD classifications to match with other data
-      left_join((data.frame(classif_ISIC, classif_IEA, classif_INDSTAT)),
-                join_by(INDSTAT_Name== classif_INDSTAT)) %>%
+      left_join((data.frame(classif_ISIC, classif_NACE,classif_IEA, classif_INDSTAT)),
+                join_by(INDSTAT_Name== classif_INDSTAT))
+  }
+  
+  # Summarise aggregate data by NACE sector
+  {
+    dta_internat_NACE <- dta_aggrINDTSTAT %>%
+      group_by(country, year, classif_NACE) %>%
+      summarise(across(.cols = where(is.numeric), .fns = sum, na.rm = TRUE), .groups = 'drop')%>%
+      rename(NACE_Name = classif_NACE)
+  }
+  
+  # Create Dataframe of matching Variables for detailed Data
+  {
+    NACE_Name <- c("Food, beverages, tobacco", "Food, beverages, tobacco", "Food, beverages, tobacco", 
+                   "Food, beverages, tobacco", "Food, beverages, tobacco", "Food, beverages, tobacco",
+                   "Food, beverages, tobacco", "Food, beverages, tobacco", "Food, beverages, tobacco",
+                   "Food, beverages, tobacco", "Food, beverages, tobacco", "Food, beverages, tobacco", 
+                   "Food, beverages, tobacco", "Food, beverages, tobacco", "Food, beverages, tobacco", 
+                   "Food, beverages, tobacco", "Food, beverages, tobacco", "Food, beverages, tobacco", 
+                   "Food, beverages, tobacco", "Food, beverages, tobacco", "Food, beverages, tobacco",
+                   "Food, beverages, tobacco", 
+                   "Textiles, wearing apparel, leather", "Textiles, wearing apparel, leather", 
+                   "Textiles, wearing apparel, leather", "Textiles, wearing apparel, leather",
+                   "Textiles, wearing apparel, leather", "Textiles, wearing apparel, leather", 
+                   "Textiles, wearing apparel, leather", "Textiles, wearing apparel, leather", 
+                   "Textiles, wearing apparel, leather", "Textiles, wearing apparel, leather", 
+                   "Textiles, wearing apparel, leather", "Textiles, wearing apparel, leather", 
+                   "Textiles, wearing apparel, leather", "Textiles, wearing apparel, leather", 
+                   "Textiles, wearing apparel, leather", "Textiles, wearing apparel, leather",
+                   "Textiles, wearing apparel, leather",
+                   "Wood products", "Wood products", "Wood products",
+                   "Wood products", "Wood products", "Wood products",
+                   "Pulp, paper, publishing", "Pulp, paper, publishing", 
+                   "Pulp, paper, publishing", "Pulp, paper, publishing", 
+                   "Pulp, paper, publishing", "Pulp, paper, publishing", 
+                   "Pulp, paper, publishing", "Pulp, paper, publishing",
+                   "Coke, petroleum", "Coke, petroleum", 
+                   "Chemicals and pharmaceuticals", "Chemicals and pharmaceuticals", 
+                   "Chemicals and pharmaceuticals", "Chemicals and pharmaceuticals",
+                   "Chemicals and pharmaceuticals", "Chemicals and pharmaceuticals", 
+                   "Chemicals and pharmaceuticals", "Chemicals and pharmaceuticals",
+                   "Chemicals and pharmaceuticals", "Chemicals and pharmaceuticals",
+                   "Chemicals and pharmaceuticals", 
+                   "Rubber and plastics", "Rubber and plastics", 
+                   "Rubber and plastics", "Rubber and plastics", 
+                   "Non-metallic minerals", "Non-metallic minerals", "Non-metallic minerals", 
+                   "Non-metallic minerals", "Non-metallic minerals", "Non-metallic minerals", 
+                   "Non-metallic minerals", "Non-metallic minerals", "Non-metallic minerals", 
+                   "Basic Metals", "Basic Metals", "Basic Metals", 
+                   "Basic Metals", "Basic Metals", 
+                   "Metal products, electronics, machinery", "Metal products, electronics, machinery",
+                   "Metal products, electronics, machinery", "Metal products, electronics, machinery",
+                   "Metal products, electronics, machinery", "Metal products, electronics, machinery",
+                   "Metal products, electronics, machinery", "Metal products, electronics, machinery",
+                   "Metal products, electronics, machinery", "Metal products, electronics, machinery", 
+                   "Metal products, electronics, machinery", "Metal products, electronics, machinery", 
+                   "Metal products, electronics, machinery", "Metal products, electronics, machinery", 
+                   "Metal products, electronics, machinery", "Metal products, electronics, machinery", 
+                   "Metal products, electronics, machinery", "Metal products, electronics, machinery", 
+                   "Metal products, electronics, machinery", "Metal products, electronics, machinery", 
+                   "Metal products, electronics, machinery", "Metal products, electronics, machinery",
+                   "Metal products, electronics, machinery", "Metal products, electronics, machinery",
+                   "Metal products, electronics, machinery", "Metal products, electronics, machinery",
+                   "Metal products, electronics, machinery", "Metal products, electronics, machinery",
+                   "Metal products, electronics, machinery", "Metal products, electronics, machinery",
+                   "Metal products, electronics, machinery", "Metal products, electronics, machinery", 
+                   "Metal products, electronics, machinery", "Metal products, electronics, machinery", 
+                   "Metal products, electronics, machinery", "Metal products, electronics, machinery", 
+                   "Metal products, electronics, machinery", "Metal products, electronics, machinery", 
+                   "Metal products, electronics, machinery", "Metal products, electronics, machinery", 
+                   "Metal products, electronics, machinery", "Metal products, electronics, machinery",
+                   "Metal products, electronics, machinery", "Metal products, electronics, machinery", 
+                   "Metal products, electronics, machinery", "Metal products, electronics, machinery",
+                   "Metal products, electronics, machinery",
+                   "Vehicles, other transport, n.e.c.", "Vehicles, other transport, n.e.c.", "Vehicles, other transport, n.e.c.", 
+                   "Vehicles, other transport, n.e.c.", "Vehicles, other transport, n.e.c.", "Vehicles, other transport, n.e.c.",
+                   "Vehicles, other transport, n.e.c.", "Vehicles, other transport, n.e.c.", "Vehicles, other transport, n.e.c.",
+                   "Vehicles, other transport, n.e.c.", "Vehicles, other transport, n.e.c.", "Vehicles, other transport, n.e.c.", 
+                   "Vehicles, other transport, n.e.c.", "Vehicles, other transport, n.e.c.", "Vehicles, other transport, n.e.c.", 
+                   "Vehicles, other transport, n.e.c.", "Vehicles, other transport, n.e.c.", "Vehicles, other transport, n.e.c.", 
+                   "Vehicles, other transport, n.e.c.", "Vehicles, other transport, n.e.c.", "Vehicles, other transport, n.e.c.", 
+                   "Vehicles, other transport, n.e.c.", "Vehicles, other transport, n.e.c.", "Vehicles, other transport, n.e.c.", 
+                   "Vehicles, other transport, n.e.c.", "Vehicles, other transport, n.e.c.", "Vehicles, other transport, n.e.c.", 
+                   "Vehicles, other transport, n.e.c.", "Vehicles, other transport, n.e.c.", "Vehicles, other transport, n.e.c.", 
+                   "Total Manufacturing")
+    
+    ISIC_Name <- c("Food, beverages, tobacco", "Food, beverages, tobacco", "Food, beverages, tobacco",
+                   "Food, beverages, tobacco", "Food, beverages, tobacco", "Food, beverages, tobacco",
+                   "Food, beverages, tobacco", "Food, beverages, tobacco", "Food, beverages, tobacco",
+                   "Food, beverages, tobacco", "Food, beverages, tobacco", "Food, beverages, tobacco",
+                   "Food, beverages, tobacco", "Food, beverages, tobacco", "Food, beverages, tobacco",
+                   "Food, beverages, tobacco", "Food, beverages, tobacco", "Food, beverages, tobacco",
+                   "Food, beverages, tobacco", "Food, beverages, tobacco", "Food, beverages, tobacco",
+                   "Food, beverages, tobacco",
+                   "Textiles, apparel, fur, leather", "Textiles, apparel, fur, leather",
+                   "Textiles, apparel, fur, leather", "Textiles, apparel, fur, leather",
+                   "Textiles, apparel, fur, leather", "Textiles, apparel, fur, leather",
+                   "Textiles, apparel, fur, leather", "Textiles, apparel, fur, leather",
+                   "Textiles, apparel, fur, leather", "Textiles, apparel, fur, leather",
+                   "Textiles, apparel, fur, leather", "Textiles, apparel, fur, leather",
+                   "Textiles, apparel, fur, leather", "Textiles, apparel, fur, leather",
+                   "Textiles, apparel, fur, leather", "Textiles, apparel, fur, leather",
+                   "Textiles, apparel, fur, leather",
+                   "Wood products", "Wood products", "Wood products",
+                   "Wood products", "Wood products", "Wood products", 
+                   "Paper and publishing", "Paper and publishing", "Paper and publishing",
+                   "Paper and publishing", "Paper and publishing", "Paper and publishing",
+                   "Paper and publishing", "Paper and publishing",
+                   "Coke, refined petroleum, fuels", "Coke, refined petroleum, fuels",
+                   "Chemicals", "Chemicals", "Chemicals", "Chemicals",
+                   "Chemicals", "Chemicals", "Chemicals", "Chemicals", 
+                   "Chemicals", "Chemicals", "Chemicals",
+                   "Rubber and plastics", "Rubber and plastics",
+                   "Rubber and plastics", "Rubber and plastics",
+                   "Other non-metallic minerals", "Other non-metallic minerals", 
+                   "Other non-metallic minerals", "Other non-metallic minerals", 
+                   "Other non-metallic minerals", "Other non-metallic minerals", 
+                   "Other non-metallic minerals", "Other non-metallic minerals",
+                   "Other non-metallic minerals",
+                   "Basic metals", "Basic metals", "Basic metals", "Basic metals",
+                   "Basic metals",
+                   "Fabricated metals", "Fabricated metals", "Fabricated metals",
+                   "Fabricated metals", "Fabricated metals", "Fabricated metals",
+                   "Fabricated metals", "Fabricated metals", "Fabricated metals",
+                   "Fabricated metals", 
+                   "Office, computing, electrical", "Office, computing, electrical",
+                   "Office, computing, electrical", "Office, computing, electrical",
+                   "Medical, precision, and optical", "Medical, precision, and optical",
+                   "Medical, precision, and optical", "Medical, precision, and optical",
+                   "Medical, precision, and optical", "Medical, precision, and optical",
+                   "Office, computing, electrical", "Office, computing, electrical",
+                   "Office, computing, electrical", "Office, computing, electrical",
+                   "Office, computing, electrical", "Office, computing, electrical",
+                   "Office, computing, electrical", "Office, computing, electrical",
+                   "Office, computing, electrical",
+                   "Machinery and equipment", "Machinery and equipment", "Machinery and equipment",
+                   "Machinery and equipment", "Machinery and equipment", "Machinery and equipment", 
+                   "Machinery and equipment", "Machinery and equipment", "Machinery and equipment", 
+                   "Machinery and equipment", "Machinery and equipment", "Machinery and equipment", 
+                   "Machinery and equipment", "Machinery and equipment", "Machinery and equipment", 
+                   "Machinery and equipment", "Machinery and equipment", "Machinery and equipment", 
+                   "Motor vehicles, trailers", "Motor vehicles, trailers", "Motor vehicles, trailers",
+                   "Other transport equipment", "Other transport equipment", "Other transport equipment", 
+                   "Other transport equipment", "Other transport equipment", "Other transport equipment", 
+                   "Other transport equipment", "Other transport equipment", "Other transport equipment", 
+                   "Other transport equipment",
+                   "Furniture, other, recycling", "Furniture, other, recycling", 
+                   "Furniture, other, recycling", "Furniture, other, recycling", 
+                   "Furniture, other, recycling", "Furniture, other, recycling", 
+                   "Furniture, other, recycling", 
+                   "Medical, precision, and optical", 
+                   "Furniture, other, recycling", "Furniture, other, recycling",
+                   "Furniture, other, recycling", "Furniture, other, recycling",
+                   "Furniture, other, recycling", "Furniture, other, recycling",
+                   "Furniture, other, recycling", "Furniture, other, recycling",
+                   "Furniture, other, recycling", 
+                   "Total Manufacturing")
+    
+    dINDSTAT_name <- c("1010 Processing/preserving of meat", "1020 Processing/preserving of fish, etc.", 
+                       "1030 Processing/preserving of fruit,vegetables", "1040 Vegetable and animal oils and fats", 
+                       "1050 Dairy products",
+                       "106 Grain mill products,starches and starch products",
+                       "1061 Grain mill products", "1062 Starches and starch products", 
+                       "107 Other food products", "1071 Bakery products", "1072 Sugar", 
+                       "1073 Cocoa, chocolate and sugar confectionery", "1074 Macaroni, noodles, couscous, etc.", 
+                       "1075 Prepared meals and dishes", "1079 Other food products n.e.c.", 
+                       "1080 Prepared animal feeds", "110 Beverages",
+                       "1101 Distilling, rectifying and blending of spirits",
+                       "1102 Wines", "1103 Malt liquors and malt", 
+                       "1104 Soft drinks,mineral waters,other bottled waters",
+                       "1200 Tobacco products",
+                       "131 Spinning, weaving and finishing of textiles",
+                       "1311 Preparation and spinning of textile fibres",
+                       "1312 Weaving of textiles", 
+                       "1313 Finishing of textiles",
+                       "139 Other textiles", 
+                       "1391 Knitted and crocheted fabrics",
+                       "1392 Made-up textile articles, except apparel",
+                       "1393 Carpets and rugs", "1394 Cordage, rope, twine and netting", 
+                       "1399 Other textiles n.e.c.", "1410 Wearing apparel, except fur apparel",
+                       "1420 Articles of fur",
+                       "1430 Knitted and crocheted apparel",
+                       "151 Leather;luggage,handbags,saddlery,harness;fur",
+                       "1511 Tanning/dressing of leather; dressing of fur", 
+                       "1512 Luggage,handbags,etc.;saddlery/harness",
+                       "1520 Footwear",
+                       "1610 Sawmilling and planing of wood",
+                       "162 Wood products, cork, straw, plaiting materials", 
+                       "1621 Veneer sheets and wood-based panels", "1622 Builders' carpentry and joinery",
+                       "1623 Wooden containers",
+                       "1629 Other wood products;articles of cork,straw",
+                       "170 Paper and paper products",
+                       "1701 Pulp, paper and paperboard", 
+                       "1702 Corrugated paper and paperboard", "1709 Other articles of paper and paperboard",
+                       "181 Printing and service activities related to printing",
+                       "1811 Printing",
+                       "1812 Service activities related to printing", "1820 Reproduction of recorded media",
+                       "1910 Coke oven products", "1920 Refined petroleum products",
+                       "201 Basic chemicals,fertilizers, etc.",
+                       "2011 Basic chemicals",
+                       "2012 Fertilizers and nitrogen compounds", "2013 Plastics and synthetic rubber in primary forms",
+                       "202 Other chemical products", 
+                       "2021 Pesticides and other agrochemical products",
+                       "2022 Paints,varnishes;printing ink and mastics", 
+                       "2023 Soap,cleaning and cosmetic preparations",
+                       "2029 Other chemical products n.e.c.", "2030 Man-made fibres",
+                       "2100 Pharmaceuticals,medicinal chemicals, etc.",
+                       "221 Rubber products",
+                       "2211 Rubber tyres and tubes", "2219 Other rubber products",
+                       "2220 Plastics products", "2310 Glass and glass products",
+                       "239 Non-metallic mineral products n.e.c.",
+                       "2391 Refractory products",
+                       "2392 Clay building materials", "2393 Other porcelain and ceramic products",
+                       "2394 Cement, lime and plaster", "2395 Articles of concrete, cement and plaster",
+                       "2396 Cutting, shaping and finishing of stone",
+                       "2399 Other non-metallic mineral products n.e.c.", 
+                       "2410 Basic iron and steel", "2420 Basic precious and other non-ferrous metals",
+                       "243 Casting of metals", "2431 Casting of iron and steel",
+                       "2432 Casting of non-ferrous metals",
+                       "251 Struct.metal products, tanks, reservoirs", 
+                       "2511 Structural metal products", "2512 Tanks, reservoirs and containers of metal",
+                       "2513 Steam generators, excl. hot water boilers", "2520 Weapons and ammunition",
+                       "259 Other metal products;metal working services",
+                       "2591 Forging,pressing,stamping,roll-forming of metal", 
+                       "2592 Treatment and coating of metals; machining", 
+                       "2593 Cutlery, hand tools and general hardware",
+                       "2599 Other fabricated metal products n.e.c.",
+                       "2610 Electronic components and boards", 
+                       "2620 Computers and peripheral equipment", "2630 Communication equipment",
+                       "2640 Consumer electronics",
+                       "265 Measuring,testing equipment; watches, etc.", 
+                       "2651 Measuring/testing/navigating equipment,etc.",
+                       "2652 Watches and clocks",
+                       "2660 Irradiation/electromedical equipment,etc.",
+                       "2670 Optical instruments and photographic equipment", 
+                       "2680 Magnetic and optical media", "2710 Electric motors,generators,transformers,etc.", "2720 Batteries and accumulators", 
+                       "273 Wiring and wiring devices", 
+                       "2731 Fibre optic cables", 
+                       "2732 Other electronic and electric wires and cables", "2733 Wiring devices", 
+                       "2740 Electric lighting equipment", "2750 Domestic appliances", 
+                       "2790 Other electrical equipment", 
+                       "281 General-purpose machinery", 
+                       "2811 Engines/turbines,excl.aircraft,vehicle engines", "2812 Fluid power equipment", "2813 Other pumps, compressors, taps and valves",
+                       "2814 Bearings, gears, gearing and driving elements", "2815 Ovens, furnaces and furnace burners", "2816 Lifting and handling equipment",
+                       "2817 Office machinery, excl.computers,etc.", "2818 Power-driven hand tools", "2819 Other general-purpose machinery", 
+                       "282 Special-purpose machinery",
+                       "2821 Agricultural and forestry machinery", "2822 Metal-forming machinery and machine tools", "2823 Machinery for metallurgy",
+                       "2824 Mining, quarrying and construction machinery", "2825 Food/beverage/tobacco processing machinery",
+                       "2826 Textile/apparel/leather production machinery", "2829 Other special-purpose machinery", "2910 Motor vehicles", 
+                       "2920 Automobile bodies, trailers and semi-trailers", "2930 Parts and accessories for motor vehicles", 
+                       "301 Building of ships and boats",
+                       "3011 Building of ships and floating structures", "3012 Building of pleasure and sporting boats",
+                       "3020 Railway locomotives and rolling stock", "3030 Air and spacecraft and related machinery", "3040 Military fighting vehicles",
+                       "309 Transport equipment n.e.c.", 
+                       "3091 Motorcycles", "3092 Bicycles and invalid carriages", "3099 Other transport equipment n.e.c.",
+                       "3100 Furniture", 
+                       "321 Jewellery, bijouterie and related articles", 
+                       "3211 Jewellery and related articles", "3212 Imitation jewellery and related articles",
+                       "3220 Musical instruments", "3230 Sports goods", "3240 Games and toys", 
+                       "3250 Medical and dental instruments and supplies", "3290 Other manufacturing n.e.c.", 
+                       "331 Repair of fabricated metal products/machinery",
+                       "3311 Repair of fabricated metal products", "3312 Repair of machinery",
+                       "3313 Repair of electronic and optical equipment", "3314 Repair of electrical equipment", 
+                       "3315 Repair of transport equip., excl. motor vehicles", "3319 Repair of other equipment", 
+                       "3320 Installation of industrial machinery/equipment", "C Total manufacturing")
+    
+    # Concatenate data
+    detailINDSTAT_names <- as.data.frame(cbind(dINDSTAT_name, ISIC_Name, NACE_Name))
+    
+    rm(dINDSTAT_name)
+    rm(ISIC_Name)
+    rm(NACE_Name)
+  }
+  
+  # Retrieve missing data of NACE: dta_miss
+  {
+    dta_miss <- dta_internat_NACE %>%
+      filter(Output==0 & year >= base_year & year <= '2016') %>%
+      select(country, year, NACE_Name)
+  }
+ 
+  # Transform detailed INDSTAT data
+  {
+    INDSTAT_test <- INDSTAT_detail %>%
+      mutate(concISIC = paste(ISIC,`ISIC Description`),
+             Value = as.numeric(Value)) %>%
+      left_join(detailINDSTAT_names, join_by(concISIC==dINDSTAT_name)) %>%
+      rename(country = 'Country Description',
+             countrycode_INDSTAT = 'Country Code',
+             year = Year,
+             INDSTAT_Name = 'ISIC Description') %>%
+      select(country, countrycode_INDSTAT, year, INDSTAT_Name, Value, NACE_Name)
+  }
+  
+  # Summarise detailed data by NACE sector
+  {
+    INDSTAT_Nace <- INDSTAT_test %>%
+      group_by(country, year, NACE_Name) %>%
+      summarise(Output = sum(Value, na.rm = TRUE), .groups = "keep") %>%
+      ungroup()
+  }
+  
+  # Fill missing data with more detailed INDSTAT data
+  {
+    dta_fillmiss <- dta_miss %>%
+      left_join(INDSTAT_Nace,
+                join_by(country == country, year == year,
+                        NACE_Name == NACE_Name))
+  }
+  
+  # OLD: IEA emission data not needed and dont need to summarise by ISIC
+  {
+      # Summarise data by ISIC sector
+      #dta_internat_ISIC <- dta_aggrINDTSTAT %>%
+      #  group_by(country, year, classif_ISIC) %>%
+      #  summarise(across(.cols = where(is.numeric), .fns = sum, na.rm = TRUE), .groups = 'drop') %>%
+      #  rename(ISIC_Name = classif_ISIC) %>%
+      #  mutate(NACE_Name = NA)
+      
+      # Combine International data
+      #dta_aggrWorld <- rbind(dta_internat_NACE, dta_internat_ISIC)
+      
+      # Summarise detailed INDSTAT data by ISIC classification
+      #INDSTAT_ISIC <- INDSTAT_test %>%
+      #  group_by(country, year, ISIC_Name) %>%
+      #  summarise(Output = sum(Value, na.rm = TRUE), .groups = "keep") %>%
+      #  ungroup() %>%
+      #  mutate(NACE_Name = NA)
+      
+      # Combine detailed International data
+      #dta_detailWorld <- rbind(INDSTAT_Nace, INDSTAT_ISIC)
       
       # Add Emission data
-      left_join((IEA_emissions %>%
-                   rename('country' = 'Time',
-                          classif = ...2) %>%
-                   select(-starts_with("..")) %>%
-                   fill(country) %>%
-                   mutate(classif = str_remove(classif, " \\[.*")) %>%
-                   pivot_longer(cols = starts_with("20"),
-                                names_to = 'year',
-                                values_to = 'Emissions') %>% # in Million tonnes CO2
-                   mutate(Emissions = Emissions* 1000) %>%
-                   left_join(as.data.frame(cbind(country_IEA, countrycode_IEAINDSTAT)),
-                             join_by(country == country_IEA)) %>%
-                   select(!country)),
-                join_by(classif_IEA == classif,
-                        year == year,
-                        countrycode_INDSTAT == countrycode_IEAINDSTAT)) %>%
-      
-      # Add OECD Exchange rate to USD
-      left_join((OECDFX %>%
-                   filter(Location %in% c("Denmark", "Germany")) %>%
-                   pivot_longer(cols = starts_with("20"),
-                                names_to = 'year',
-                                values_to = 'FXrateUSD') %>%
-                   mutate(FXrateUSD = as.numeric(FXrateUSD)/1000) %>%
-                   pivot_wider(names_from = Location,
-                               values_from = FXrateUSD)%>%
-                   rename(DKKUSD = Denmark,
-                          EURUSD = Germany)), join_by(year == year)) %>%
-      
-      # Add FIT and PPA data
-      left_join((dta_FITPPA %>%
-                   full_join(dta_electricityheat,
-                             join_by(country == country, year == year)) %>%
-                   left_join((as.data.frame(cbind(country_EUROSTAT,countrycode_EUROSTAT))),
-                             join_by(country == country_EUROSTAT)) %>%
-                   drop_na(countrycode_EUROSTAT) %>%
-                   select(!country)),
-                join_by(countrycode_INDSTAT == countrycode_EUROSTAT,
-                        year == year))
-  }
+    #  left_join((IEA_emissions %>%
+     #              rename('country' = 'Time',
+      #                    classif = ...2) %>%
+      #             select(-starts_with("..")) %>%
+      #             fill(country) %>%
+      #             mutate(classif = str_remove(classif, " \\[.*")) %>%
+      #             pivot_longer(cols = starts_with("20"),
+      #                          names_to = 'year',
+      #                          values_to = 'Emissions') %>% # in Million tonnes CO2
+      #             mutate(Emissions = Emissions* 1000) %>%
+      #             left_join(as.data.frame(cbind(country_IEA, countrycode_IEAINDSTAT)),
+      #                       join_by(country == country_IEA)) %>%
+      #             select(!country)),
+      #          join_by(classif_IEA == classif,
+      #                  year == year,
+      #                  countrycode_INDSTAT == countrycode_IEAINDSTAT)) %>%
+    
+    # Add Wage from Total Manufacturing
+    #group_by(country,year) %>%
+    #mutate(wage_manuf = if (any(INDSTAT_Name == 'Total manufacturing')) {
+    #  wage[INDSTAT_Name == 'Total manufacturing']
+    #} else {
+    #  NA_real_ # This ensures that the NA has the same type as wage
+    #}) %>%
+    #ungroup() %>%
+    }
+  
+  dta_internatROW <- rbind((dta_internat_NACE %>% select(country, year, NACE_Name, Output)), dta_fillmiss) %>%
+    filter(year >= base_year & year <= 2016 & country != "Denmark") %>%
+    group_by(year, NACE_Name) %>%
+    summarise(OutputWorld = sum(Output, na.rm = TRUE), .groups = "keep")
+  
+  dta_internatDNK <- rbind((dta_internat_NACE %>% select(country, year, NACE_Name, Output)), dta_fillmiss) %>%
+    filter(year >= base_year & year <= 2016 & country == "Denmark") %>%
+    rename(OutputDNK = Output)
+  
+  dta_internat <- dta_internatROW %>%
+    left_join(dta_internatDNK, join_by(year == year, NACE_Name == NACE_Name)) %>%
+
+    # Add OECD Exchange rate to USD
+    left_join((OECDFX %>%
+                 filter(Location == "Denmark") %>%
+                 pivot_longer(cols = starts_with("20"),
+                              names_to = 'year',
+                              values_to = 'FXrateUSD') %>%
+                 mutate(FXrateUSD = as.numeric(FXrateUSD)/1000) %>%
+                 pivot_wider(names_from = Location,
+                             values_from = FXrateUSD)%>%
+                 rename(DKKUSD = Denmark)), join_by(year == year)) %>%
+    mutate(OutputWorld = OutputWorld*DKKUSD,
+           OutputDNK = OutputDNK*DKKUSD) %>%
+    select(NACE_Name, year, OutputWorld, OutputDNK)
+  
+  # Comparison of INDSTAT versus Statbank DK by sector
+  dta_manufcomp <- dta_internat %>%
+    select(!OutputWorld) %>%
+    left_join((dta_NACE %>%
+                 select(NACE_Name, year, voutput)),
+              join_by(NACE_Name == NACE_Name, year == year)) %>%
+    mutate(OutputDNK = OutputDNK/1000000,
+           deviation = (OutputDNK/voutput)-1)
 }
 
-# Combine NACE, ISIC data, FITPPA and Electricity/HEat Production by fueltype
+# Combine NACE, ISIC data, FITPPA and Electricity/Heat Production by fueltype
 # Transform FITPPA from kWh/USD to kWh/DKK
 {
   dta_analysis <- dta_NACE %>%
-    full_join(dta_ISIC) %>%
+    #full_join(dta_ISIC) %>%
     left_join(dta_FITPPA %>%
                  full_join(dta_electricityheat,
                            join_by(country == country, year == year)) %>%
@@ -824,6 +1285,7 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
                  filter(country == 'Denmark') %>%
                  select(!c('country', 'countrycode_EUROSTAT')),
               join_by(year == year)) %>%
+    left_join(dta_internat, join_by(NACE_Name == NACE_Name, year == year)) %>%
     
     # ADD FX rates
     left_join((OECDFX %>%
@@ -844,5 +1306,5 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
 {
   saveRDS(dta_decomp, file = "./Data/dta_full.rds")
   saveRDS(dta_analysis, file = "./Data/dta_analysis.rds")
-  saveRDS(dta_internat, file = "./Data/dta_internat.rds")
+  #saveRDS(dta_internat, file = "./Data/dta_internat.rds")
 }

@@ -118,7 +118,7 @@ end_year <- 2016
   # from example in 'TEST environment' the x-values are the potential values used in shocks
   # need to return the wages and firm entry changes that make the equation hold
   
-  algorithm_data <- d
+  #algorithm_data <- d
 }
 
 # Save Data

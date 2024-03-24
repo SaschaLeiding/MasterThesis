@@ -35,7 +35,7 @@ end_year <- 2016 # End year to define time sequence under observation
 # Decomposition
 {
   dta_decomp <- dta_analysis %>%
-    filter(classsystem == 'ISIC') %>% # NACE=ZEW, ISIC=Shapiro
+    filter(classsystem == 'NACE') %>% # NACE=ZEW, ISIC=Shapiro
     group_by(ISIC_Name) %>% 
     arrange(year, .by_group = TRUE) %>%
     mutate(scale = (realoutput / realoutput[year == base_year]) * 100, 
@@ -44,7 +44,7 @@ end_year <- 2016 # End year to define time sequence under observation
            techn = scale_comp_techn - scale_comp + 100,
            comp = scale_comp - scale + 100,
            normalized_ghg = (!!sym(ghg) / (!!sym(ghg))[year == base_year]) * 100) %>%
-  ungroup() %>%
+    ungroup() %>%
     filter(year >= base_year & year <= end_year)
     
   attr(dta_decomp[[ghg]], 'label') <- "tons Emissions per 1,000 DKK"
@@ -53,7 +53,7 @@ end_year <- 2016 # End year to define time sequence under observation
 # Trends in Output, Electricity & Pollution Emissions - 'Landscape' 8.00 x 6.00
 {
   dta_manufacturing_plot <- dta_decomp %>% 
-    filter(ISIC_Name == 'Total Manufacturing') %>%
+    filter(NACE_Name == 'Total Manufacturing') %>%
     mutate(Fossil_prod = 1 - RE_share) %>%
     select(year, realoutput, #GHGinclBiomass,
            CO2Total, #SO2, NOx, PM10, PM2.5, NMVOC
@@ -84,7 +84,7 @@ end_year <- 2016 # End year to define time sequence under observation
 # NOTUSED - Trends in Pollution Emissions - 'Landscape' 8.00 x 6.00
 {
   dta_emissions_plot <- dta_decomp %>% 
-    filter(ISIC_Name == 'Total Manufacturing') %>%
+    filter(NACE_Name == 'Total Manufacturing') %>%
     select(year, realoutput, GHGinclBiomass, CO2Total, SO2, NOx, PM10, PM2.5, NMVOC) %>%
     pivot_longer(cols = realoutput:NMVOC, values_to = 'Value', names_to = 'Category') %>%
     group_by(Category) %>%
@@ -182,7 +182,7 @@ end_year <- 2016 # End year to define time sequence under observation
 
 # NOTUSED - Line Plot of the decomposition - standard depiction - 'Landscape' 8.00 x 6.00
 {
-  dta_decomp_plot_stand <- dta_decomp %>% filter(ISIC_Name == 'Total Manufacturing') %>%
+  dta_decomp_plot_stand <- dta_decomp %>% filter(NACE_Name == 'Total Manufacturing') %>%
     select(year, scale, scale_comp_techn, scale_comp) %>%
     pivot_longer(cols = scale:scale_comp, names_to = 'Effect', values_to = 'Values')
   
@@ -202,7 +202,7 @@ end_year <- 2016 # End year to define time sequence under observation
 
 # Line Plot of the Decomposition - individual effects - 'Landscape' 8.00 x 6.00
 {
-  dta_decomp_plot <- dta_decomp %>% filter(ISIC_Name == 'Total Manufacturing') %>%
+  dta_decomp_plot <- dta_decomp %>% filter(NACE_Name == 'Total Manufacturing') %>%
     select(year, scale, techn, comp, normalized_ghg) %>%
     pivot_longer(cols = scale:normalized_ghg, names_to = 'Effect', values_to = 'Values')
   dta_decomp_plot$Effect <- factor(dta_decomp_plot$Effect, levels = c("normalized_ghg", "scale", "comp", "techn"))
@@ -225,25 +225,26 @@ end_year <- 2016 # End year to define time sequence under observation
 # Line Plot of Individual Effects and Emissions by Industry - Landscape 11.00-6.00
 {
   dta_technique <- dta_decomp %>% 
-    filter(classsystem == 'ISIC') %>% 
-    select(ISIC_Name, year, techn, scale, comp, scale_comp_techn) %>%
-    mutate(line_size = ifelse(ISIC_Name == "Total Manufacturing", 1, 0.5)) %>% 
-    filter(ISIC_Name %in% c("Food, beverages, tobacco","Coke, refined petroleum, fuels",
-                            "Chemicals","Other non-metallic minerals","Machinery and equipment",
+    filter(classsystem == 'NACE') %>% 
+    select(NACE_Name, year, techn, scale, comp, scale_comp_techn) %>%
+    mutate(line_size = ifelse(NACE_Name == "Total Manufacturing", 1, 0.5)) %>% 
+    filter(NACE_Name %in% c("Food, beverages, tobacco","Coke, petroleum",
+                            "Chemicals and pharmaceuticals",
+                            "Non-metallic mineral","Metal products, electronics, machinery",
                             "Total Manufacturing"))
   
   # Legend Titles
   {
-    legend_titles <- c("Basic metals", "Chemicals", "Coke, refined petroleum, fuels",
-                       "Fabricated metals", "Food, beverages, tobacco", "Furniture, other, recycling",
-                       "Machinery and equipment", "Medical, precision, and optical", "Motor vehicles, trailers",
-                       "Office, computing, electrical", "Other non-metallic minerals", "Other transport equipment",      
-                       "Paper and publishing", "Rubber and plastics", "Textiles, apparel, fur, leather",
-                       "Wood products", "Total Manufacturing")
+    legend_titles <- c("Food, beverages, tobacco", "Textiles, wearing apparel, leather",    
+                       "Pulp, paper, publishing", "Chemicals and pharmaceuticals",         
+                       "Non-metallic minerals", "Metal products, electronics, machinery",
+                       "Vehicles, other transport, n.e.c.", "Wood products" ,                        
+                       "Coke, petroleum", "Rubber and plastics",                   
+                       "Basic Metals", "Total Manufacturing")
   }
   
   # Plot Emissions by Industry
-  lplot_emiss <- ggplot(data = dta_technique, aes(x=year, y=scale_comp_techn, color=ISIC_Name, group=ISIC_Name)) +
+  lplot_emiss <- ggplot(data = dta_technique, aes(x=year, y=scale_comp_techn, color=NACE_Name, group=NACE_Name)) +
     geom_line()
   
   # Define Variables
@@ -253,8 +254,8 @@ end_year <- 2016 # End year to define time sequence under observation
   
   # Loop through 'decomp' (individual effects) to create plots by industry
   for (i in decomp) {
-    effects_plots[[paste0("lplot_", i)]] <- ggplot(data = dta_technique, aes(x=year, y=!!sym(i), color=ISIC_Name, group=ISIC_Name)) +
-      geom_line(size=dta_technique$line_size) +
+    effects_plots[[paste0("lplot_", i)]] <- ggplot(data = dta_technique, aes(x=year, y=!!sym(i), color=NACE_Name, group=NACE_Name)) +
+      geom_line(linewidth=dta_technique$line_size) +
       geom_vline(xintercept = '2009', color = "black", linetype = "dotted") +
       scale_x_discrete(breaks = year_breaks) +
       scale_colour_discrete(breaks = legend_titles) +
@@ -297,8 +298,8 @@ Composition for all negative
 ### NEED TO FIX
 {
   dta_style <- dta_decomp %>%
-    filter(classsystem == "ISIC" & year == 2003) %>%
-    select(ISIC_Name, !!sym(ghg), output_share, realoutput, realexpend, realcostEnergy, ISIC_Code) %>%
+    filter(classsystem == "NACE" & year == 2003) %>%
+    select(NACE_Name, !!sym(ghg), output_share, realoutput, realexpend, realcostEnergy, NACE_Code) %>%
     mutate(across(realoutput:realcostEnergy, ~round(.x, digits = 0)),
            output_share = output_share*100) %>%
     rename("Emissions" = paste0(ghg),
@@ -306,13 +307,13 @@ Composition for all negative
            "Real Output" = "realoutput",
            "Real Costs" = "realexpend",
            "Real Energy Costs" = "realcostEnergy") %>%
-    arrange(ISIC_Code) %>%
+    arrange(NACE_Code) %>%
     
     left_join(dta_decomp %>%
-                filter(classsystem == "ISIC" & (year %in% c(2003,2016))) %>%
-                select(ISIC_Name, year, !!sym(ghg), output_share, realoutput, realexpend, realcostEnergy) %>%
+                filter(classsystem == "NACE" & (year %in% c(2003,2016))) %>%
+                select(NACE_Name, year, !!sym(ghg), output_share, realoutput, realexpend, realcostEnergy) %>%
                 #mutate_if(is.numeric, ~round(.x, digits = 0)) %>%
-                group_by(ISIC_Name) %>%
+                group_by(NACE_Name) %>%
                 mutate_if(is.numeric, ~ round(((lead(.x)-.x) / .x)*100, digits = 1)) %>%
                 rename("Emissions" = paste0(ghg),
                        "Output Share" = "output_share",
@@ -321,8 +322,8 @@ Composition for all negative
                        "Real Energy Costs" = "realcostEnergy") %>%
                 rename_if(is.numeric, ~paste0("Change in ", .x)) %>%
                 filter(year == 2003) %>% select(!year),
-              join_by(ISIC_Name == ISIC_Name)) %>%
-    select(ISIC_Name, Emissions, 'Change in Emissions',
+              join_by(NACE_Name == NACE_Name)) %>%
+    select(NACE_Name, Emissions, 'Change in Emissions',
            'Output Share', 'Change in Output Share', 'Real Output', 'Change in Real Output',
            "Real Costs", 'Change in Real Costs',
            'Real Energy Costs', 'Change in Real Energy Costs')
