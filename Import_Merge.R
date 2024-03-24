@@ -1257,8 +1257,8 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
                  pivot_wider(names_from = Location,
                              values_from = FXrateUSD)%>%
                  rename(DKKUSD = Denmark)), join_by(year == year)) %>%
-    mutate(OutputWorld = OutputWorld*DKKUSD,
-           OutputDNK = OutputDNK*DKKUSD) %>%
+    mutate(OutputWorld = (OutputWorld*DKKUSD)/1000000,
+           OutputDNK = (OutputDNK*DKKUSD)/1000000) %>%
     select(NACE_Name, year, OutputWorld, OutputDNK)
   
   # Comparison of INDSTAT versus Statbank DK by sector
@@ -1267,8 +1267,7 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
     left_join((dta_NACE %>%
                  select(NACE_Name, year, voutput)),
               join_by(NACE_Name == NACE_Name, year == year)) %>%
-    mutate(OutputDNK = OutputDNK/1000000,
-           deviation = (OutputDNK/voutput)-1)
+    mutate(deviation = (OutputDNK/voutput)-1)
 }
 
 # Combine NACE, ISIC data, FITPPA and Electricity/Heat Production by fueltype
