@@ -1367,7 +1367,7 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
       summarise(across(where(is.numeric), sum, na.rm = TRUE), .groups = 'drop') %>%
       mutate(Description = "Total Manufacturing",
              Code = "C",
-             OutputWorld = EXP + DomDom + DomImp + voutputROW)
+             OutputWorld = EXP + DomDom + DomImp + ROWROW)
     
     # Create Frame for NACE identification
     {
