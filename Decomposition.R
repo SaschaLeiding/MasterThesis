@@ -36,7 +36,7 @@ end_year <- 2016 # End year to define time sequence under observation
 {
   dta_decomp <- dta_analysis %>%
     filter(classsystem == 'NACE') %>% # NACE=ZEW, ISIC=Shapiro
-    group_by(ISIC_Name) %>% 
+    group_by(NACE_Name) %>% 
     arrange(year, .by_group = TRUE) %>%
     mutate(scale = (realoutput / realoutput[year == base_year]) * 100, 
            scale_comp_techn = (!!sym(ghg) / (!!sym(ghg))[year == base_year]) * 100,
@@ -227,8 +227,8 @@ end_year <- 2016 # End year to define time sequence under observation
   dta_technique <- dta_decomp %>% 
     filter(classsystem == 'NACE') %>% 
     select(NACE_Name, year, techn, scale, comp, scale_comp_techn) %>%
-    mutate(line_size = ifelse(NACE_Name == "Total Manufacturing", 1, 0.5)) %>% 
-    filter(NACE_Name %in% c("Food, beverages, tobacco","Coke, petroleum",
+    mutate(line_size = ifelse(NACE_Name == "Total Manufacturing", 1, 0.5)) #%>% 
+    #filter(NACE_Name %in% c("Food, beverages, tobacco","Coke, petroleum",
                             "Chemicals and pharmaceuticals",
                             "Non-metallic mineral","Metal products, electronics, machinery",
                             "Total Manufacturing"))
