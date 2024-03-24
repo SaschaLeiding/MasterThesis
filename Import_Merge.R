@@ -459,6 +459,7 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
 }
 
 # Trade Data - from EUR to DKK
+# CAN DELETE WHOLE BLOCK
 {
   # Classification Names
   {
@@ -1271,6 +1272,156 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
     mutate(deviation = (OutputDNK/voutput)-1)
 }
 
+# WIODs
+{
+  # Denmark Input Output table
+  {
+    WIOD_DNK <- read_xlsx("./Data/WIOD_DNK.xlsx", range = "A1:BO1802", sheet = "National IO-tables")
+    
+    WIOD_DNK_inter <- WIOD_DNK[-1,] %>%
+      mutate(across(5:ncol(WIOD_DNK), as.numeric))%>%
+      filter(str_detect(Code, "^C")) %>%
+      mutate(DomDom = GO-EXP,
+             DomImp = ifelse(Origin == 'Imports', rowSums(select(., 5:ncol(WIOD_DNK))), NA)) %>%
+      select(Code, Description, Origin, Year, GO, EXP, DomDom, DomImp)
+    
+    WIOD_DNK_final <- WIOD_DNK_inter %>%
+      filter(Origin == "Domestic") %>%
+      select(Code, Description, Year, GO, EXP, DomDom) %>%
+      
+      left_join((WIOD_DNK_inter %>%
+                   filter(Origin == "Imports") %>%
+                   select(Code, Description, Year, DomImp)),
+                join_by(Code == Code, Description == Description, Year == Year))
+  }
+  
+  # World Input-Output table
+  {
+    load("./Data/WIOT2003_October16_ROW.RData")
+    WIOT_2003 <- wiot
+    load("./Data/WIOT2004_October16_ROW.RData")
+    WIOT_2004 <- wiot
+    load("./Data/WIOT2005_October16_ROW.RData")
+    WIOT_2005 <- wiot
+    load("./Data/WIOT2006_October16_ROW.RData")
+    WIOT_2006 <- wiot
+    load("./Data/WIOT2007_October16_ROW.RData")
+    WIOT_2007 <- wiot
+    load("./Data/WIOT2008_October16_ROW.RData")
+    WIOT_2008 <- wiot
+    load("./Data/WIOT2009_October16_ROW.RData")
+    WIOT_2009 <- wiot
+    load("./Data/WIOT2010_October16_ROW.RData")
+    WIOT_2010 <- wiot
+    load("./Data/WIOT2011_October16_ROW.RData")
+    WIOT_2011 <- wiot
+    load("./Data/WIOT2012_October16_ROW.RData")
+    WIOT_2012 <- wiot
+    load("./Data/WIOT2013_October16_ROW.RData")
+    WIOT_2013 <- wiot
+    load("./Data/WIOT2014_October16_ROW.RData")
+    WIOT_2014 <- wiot
+    
+    WIOD_World <- rbind(WIOT_2003, WIOT_2004, WIOT_2005, WIOT_2006, WIOT_2007, WIOT_2008,
+                        WIOT_2009, WIOT_2010, WIOT_2011, WIOT_2012, WIOT_2013, WIOT_2014)
+    
+    WIOD_World_final <- WIOD_World %>%
+      filter(Country != "DNK") %>%
+      select(!starts_with("DNK"), -TOT) %>%
+      mutate(total = rowSums(select(., 6:ncol(.)))) %>%
+      select(IndustryCode, IndustryDescription, Country, RNr, Year, total) %>%
+      group_by(IndustryCode, IndustryDescription, Year) %>%
+      summarise(ROWROW = sum(total, na.rm = TRUE), .groups = "drop") %>%
+      filter(str_detect(IndustryCode, "^C")) %>%
+      ungroup()
+    
+    # Remove unnecessary data
+    {
+      rm(WIOT_2003)
+      rm(WIOT_2004)
+      rm(WIOT_2005)
+      rm(WIOT_2006)
+      rm(WIOT_2007)
+      rm(WIOT_2008)
+      rm(WIOT_2009)
+      rm(WIOT_2010)
+      rm(WIOT_2011)
+      rm(WIOT_2012)
+      rm(WIOT_2013)
+      rm(WIOT_2014)
+      rm(WIOD_World)
+      }
+  }
+  
+  # Merge Denmark and World inout-output table and create total manufacturing
+  {
+    WIOD <- WIOD_DNK_final %>%
+      left_join((WIOD_World_final %>% select(!IndustryDescription)),
+                join_by(Code == IndustryCode, Year == Year)) %>%
+      filter(Year >= "2003") %>%
+      rename(year = Year) %>%
+      mutate(OutputWorld = NA)
+    
+    WIOD_total <- WIOD %>%
+      group_by(year) %>%
+      summarise(across(where(is.numeric), sum, na.rm = TRUE), .groups = 'drop') %>%
+      mutate(Description = "Total Manufacturing",
+             Code = "C",
+             OutputWorld = EXP + DomDom + DomImp + voutputROW)
+    
+    # Create Frame for NACE identification
+    {
+      WIOD_codes <- sort(c("C10-C12", "C13-C15", "C16", "C17", "C18", "C19", "C20",
+                           "C21", "C22", "C23", "C24", "C25", "C26", "C27", "C28", 
+                           "C29", "C30", "C31_C32", "C33", "C"))
+      WIOD_NACE <- c("Total Manufacturing", "Food, beverages, tobacco",
+                     "Textiles, wearing apparel, leather", "Wood products",
+                     "Pulp, paper, publishing", "Pulp, paper, publishing",
+                     "Coke, petroleum", "Chemicals and pharmaceuticals",
+                     "Chemicals and pharmaceuticals", "Rubber and plastics",
+                     "Non-metallic minerals", "Basic Metals", "Metal products, electronics, machinery",
+                     "Metal products, electronics, machinery", "Metal products, electronics, machinery",
+                     "Metal products, electronics, machinery", "Vehicles, other transport, n.e.c.",
+                     "Vehicles, other transport, n.e.c.", "Vehicles, other transport, n.e.c.",
+                     "Vehicles, other transport, n.e.c.")
+      WIOD_merge <- as.data.frame(cbind(WIOD_codes, WIOD_NACE))
+      }
+    
+    WIOD_final <- rbind(WIOD, WIOD_total) %>%
+      left_join(WIOD_merge, join_by(Code == WIOD_codes)) %>%
+      group_by(year, WIOD_NACE) %>%
+      summarise(across(where(is.numeric), sum, na.rm = TRUE), .groups = 'drop') %>%
+      mutate(year = as.character(year)) %>%
+      
+      # ADD FX rates
+      left_join((OECDFX %>%
+                   filter(Location == "Denmark") %>%
+                   pivot_longer(cols = starts_with("20"),
+                                names_to = 'year',
+                                values_to = 'FXrateUSD') %>%
+                   mutate(FXrateUSD = as.numeric(FXrateUSD)/1000) %>%
+                   pivot_wider(names_from = Location,
+                               values_from = FXrateUSD) %>%
+                   rename(DKKUSD = Denmark)),
+                join_by(year == year)) %>%
+      mutate(across(where(is.numeric), ~.x*DKKUSD)) %>%
+      group_by(year) %>%
+      mutate(OutputWorld = OutputWorld[WIOD_NACE == 'Total Manufacturing'],
+             across(3:7, ~.x/OutputWorld),
+             vship = GO/GO[WIOD_NACE == 'Total Manufacturing']) %>%
+      select(-GO, -OutputWorld,-DKKUSD)
+    
+    rm(WIOD_World_final)
+    rm(WIOD_DNK_final)
+    rm(WIOD)
+    rm(WIOD_total)
+    rm(WIOD_codes)
+    rm(WIOD_NACE)
+    rm(WIOD_merge)
+    
+  }
+}
+
 # Combine NACE, ISIC data, FITPPA and Electricity/Heat Production by fueltype
 # Transform FITPPA from kWh/USD to kWh/DKK
 {
@@ -1299,30 +1450,11 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
                  rename(DKKUSD = Denmark,
                         EURUSD = Germany)),
               join_by(year == year)) %>%
-    mutate(across(starts_with('FIT'), ~.x*DKKUSD))
+    mutate(across(starts_with('FIT'), ~.x*DKKUSD)) %>%
+    
+    # Add WIOD data
+    left_join(WIOD_final, join_by(year == year, NACE_Name == WIOD_NACE))
 }
-
-# Denmark Input Output table
-{
-  WIOD_DNK <- read_xlsx("./Data/WIOD_DNK.xlsx", range = "A1:BO1802", sheet = "National IO-tables")
-  
-  WIOD_attr <- as.character(unlist(WIOD_DNK[1,]))
-  test_WIOD <- WIOD_DNK[-1,] %>%
-    mutate(across(5:ncol(test_WIOD), as.numeric))
-  
-  for (i in 1:ncol(test_WIOD)) {
-    attr(test_WIOD[[i]], "label") <- WIOD_attr[i]
-  }
-  
-  WIOD_filter <- test_WIOD %>%
-    #filter(str_detect(Code, "^C")) %>%
-    mutate(DomDom = GO-EXP,
-           DomImp = ifelse(Origin == 'Imports', rowSums(select(., 5:ncol(test_WIOD))), NA))
-  
-  test <-WIOD_filter %>% filter(Year == 2003) %>% select(Code,Year, GO, EXP, DomDom, DomImp)
-}
-
-# World Input-Output table
 
 
 # Save the Data

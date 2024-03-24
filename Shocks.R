@@ -98,8 +98,10 @@ end_year <- 2016
 
 # Data for MATLAB version
 {
-  dta_ROW <- dta_internat %>%
-    filter(country == "Germany" & year >= base_year & year <= end_year)
+  dta_MATLAB <- dta_shocks %>%
+    select(NACE_Name, year, !!sym(ghg), voutput, ExportWorld, ImportWorld,
+           NetExportsWorld, output_share, OutputWorld) %>%
+    mutate()
 }
 
 # TEST environment for "nleqslv"
