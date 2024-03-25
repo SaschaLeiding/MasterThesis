@@ -103,11 +103,12 @@ end_year <- 2014
     filter(year <= end_year) %>%
     select(NACE_Name, year, !!sym(ghg),
            EXP, DomDom, DomImp, ROWROW, vship,
-           elasticitysubstitution, inputshare, pollutionelasticityNACE3, ParetoShape
-           ) %>%
-    rename(sigma= elasticitysubstitution, 
-           alpha=pollutionelasticityNACE3,
-           theta = ParetoShape) %>%
+           elasticitysubstitution, inputshare, pollutionelasticityNACE3, ParetoShape) %>%
+    group_by(NACE_Name) %>%
+    mutate(sigma= elasticitysubstitution[year==base_year], 
+           alpha=pollutionelasticityNACE3[year==base_year],
+           theta = ParetoShape[year==base_year]) %>%
+    ungroup() %>%
     group_by(year) %>%
     mutate(vshipROW = ROWROW + DomImp,
            vshipDNK = DomDom + EXP,
@@ -142,6 +143,10 @@ end_year <- 2014
            NXAds_DNK = sum(NXds_DNK*(sigma-1) * (theta-alpha+1) / (theta*sigma), na.rm=TRUE),
            NXAds_ROW = sum(NXds_ROW*(sigma-1) * (theta-alpha+1) / (theta*sigma), na.rm=TRUE))
   
+  # retrieve base things
+  dta_MATLAB_l41_48 <- dta_MATLAB_l1_35 %>%
+    group_by(NACE_Name)
+  
   dta_MATLAB_l54_63 <- dta_MATLAB_l1_35 %>%
     filter(NACE_Name != 'Total Manufacturing') %>%
     group_by(year) %>%
@@ -169,7 +174,29 @@ end_year <- 2014
            #w_oNJY_DNK = w_hat_DNK, # not included because in MATLAB only because of formatting
            #w_oNJY_ROW = w_hat_ROW, # not included because in MATLAB only because of formatting
            M_hat_DNK = Rds_hat_DNK / w_hat_DNK,
-           M_hat_ROW = Rds_hat_ROW / w_hat_ROW)
+           M_hat_ROW = Rds_hat_ROW / w_hat_ROW) %>%
+    ungroup()
+  
+  dta_MATLAB_l66_81 <- dta_MATLAB_l54_63 %>%
+    mutate(pwrE = 1-theta / ((sigma-1)*(1-alpha))) %>%
+    group_by(NACE_Name) %>%
+    # Create MATLAB: 'shocks.Gamma_hat_star'
+    mutate(shocks.Gamma_hat_star_DomDom = (lambda_hat_DomDom/(M_hat_DNK * (w_hat_DNK^(-theta)))) *
+             (((shocks.beta_hat_DNK/w_hat_DNK) * (Rd_DNK-NXd_DNK) /
+             (Rd_DNK[year == base_year] - NXd_DNK[year == base_year]))^pwrE),
+           
+           shocks.Gamma_hat_star_EXP = (lambda_hat_EXP/(M_hat_DNK * (w_hat_DNK^(-theta)))) *
+             (((shocks.beta_hat_ROW/w_hat_ROW) * (Rd_ROW-NXd_ROW) /
+                (Rd_ROW[year == base_year] - NXd_ROW[year == base_year]))^pwrE),
+           
+           shocks.Gamma_hat_star_DomImp = (lambda_hat_DomImp/(M_hat_ROW * (w_hat_ROW^(-theta)))) *
+             (((shocks.beta_hat_DNK/w_hat_DNK) * (Rd_DNK-NXd_DNK) /
+                 (Rd_DNK[year == base_year] - NXd_DNK[year == base_year]))^pwrE),
+           
+           shocks.Gamma_hat_star_ROWROW = (lambda_hat_ROWROW/(M_hat_ROW * (w_hat_ROW^(-theta)))) *
+             (((shocks.beta_hat_ROW/w_hat_ROW) * (Rd_ROW-NXd_ROW) /
+                 (Rd_ROW[year == base_year] - NXd_ROW[year == base_year]))^pwrE))
+    
 }
 
 # TEST environment for "nleqslv"
