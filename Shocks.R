@@ -47,13 +47,14 @@ end_year <- 2016
 # Plot for Chemicals, Food, Electrical (ISIC) - 'Landscape' 8.00 x 6.00
 {
   dta_env_plot <- dta_shocks %>%
-    filter(#ISIC_Name == 'Total Manufacturing' & 
-             ISIC_Name %in% c('Total Manufacturing',"Chemicals", "Food, beverages, tobacco", "Machinery and equipment") & 
+    filter(#NACE_Name == 'Total Manufacturing' &
+          NACE_Name %in% c('Total Manufacturing',"Chemicals and pharmaceuticals",
+                           "Food, beverages, tobacco", "Metal products, electronics, machinery") & 
              year >= base_year & year <= end_year) %>%
-    select(ISIC_Name, year, envregulation) 
+    select(NACE_Name, year, envregulation) 
   
   year_breaks <- seq(from=base_year, to=end_year, by = 2)
-  lplot_env <- ggplot(data = dta_env_plot, aes(x = year, y = envregulation, color = ISIC_Name, group = ISIC_Name)) +
+  lplot_env <- ggplot(data = dta_env_plot, aes(x = year, y = envregulation, color = NACE_Name, group = NACE_Name)) +
     geom_line() +
     labs(#title = "Development of various Greenhouse Gas Emissions",
       x = "Year",
