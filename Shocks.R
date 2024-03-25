@@ -27,7 +27,7 @@ ghg <- 'CO2ElectricityHeat' # Greenhouse gas for the analysis to allow flexibili
 #costs <- 'realexpend' # Define column used as Costs for calculations
 alpha <- 0.011 # mean Pollution elasticity
 base_year <- 2003 # Base year for parameter
-end_year <- 2016
+end_year <- 2014
 
 # Calculate shocks
 {
@@ -99,10 +99,40 @@ end_year <- 2016
 
 # Data for MATLAB version
 {
-  dta_MATLAB <- dta_shocks %>%
-    select(NACE_Name, year, !!sym(ghg), voutput, ExportWorld, ImportWorld,
-           NetExportsWorld, output_share, OutputWorld) %>%
-    mutate()
+  dta_MATLAB <- dta_parameter %>%
+    select(NACE_Name, year, !!sym(ghg),
+           EXP, DomDom, DomImp, ROWROW, vship,
+           elasticitysubstitution, inputshare, pollutionelasticityNACE3, Paret
+           ) %>%
+    rename() %>%
+    group_by(year) %>%
+    mutate(Eds_DNK = DomDom+DomImp,
+           Eds_ROW = ROWROW+EXP,
+           Rds_DNK = DomDom+EXP,
+           Rds_ROW = ROWROW+DomImp,
+           beta_DNK = Eds_DNK/Eds_DNK[NACE_Name == "Total Manufacturing"],
+           beta_ROW = Eds_ROW/Eds_ROW[NACE_Name == "Total Manufacturing"],
+           
+           lambda_DomDom = DomDom/(Eds_DNK),
+           lambda_DomImp = DomDom/(Eds_DNK),
+           lambda_EXP = EXP/(Eds_ROW),
+           lambda_ROWROW = ROWROW/(Eds_ROW),
+           zeta_DomDom = DomDom/(Rds_DNK),
+           zeta_DomImp = DomDom/(Rds_DNK),
+           zeta_EXP = EXP/(Rds_ROW),
+           zeta_ROWROW = ROWROW/(Rds_ROW),
+           Ed_DNK = DomDom[NACE_Name == 'Total Manufacturing'] +
+             DomImp[NACE_Name == 'Total Manufacturing'],
+           Ed_ROW = ROWROW[NACE_Name == 'Total Manufacturing'] +
+             EXP[NACE_Name == 'Total Manufacturing'],
+           Rd_DNK = DomDom[NACE_Name == 'Total Manufacturing'] +
+             EXP[NACE_Name == 'Total Manufacturing'],
+           Rd_ROW = ROWROW[NACE_Name == 'Total Manufacturing'] +
+             DomImp[NACE_Name == 'Total Manufacturing'],
+           NXds_DNK = Rds_DNK - Eds_DNK,
+           NXds_ROW = Rds_ROW - Eds_ROW,
+           NXd_DNK = Rd_DNK - Ed_DNK,
+           NXd_ROW = Rd_ROW - Ed_ROW)
 }
 
 # TEST environment for "nleqslv"
