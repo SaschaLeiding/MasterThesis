@@ -99,14 +99,19 @@ end_year <- 2014
 
 # Data for MATLAB version
 {
-  dta_MATLAB <- dta_parameter %>%
+  dta_MATLAB_l1_35 <- dta_parameter %>%
+    filter(year <= end_year) %>%
     select(NACE_Name, year, !!sym(ghg),
            EXP, DomDom, DomImp, ROWROW, vship,
-           elasticitysubstitution, inputshare, pollutionelasticityNACE3, Paret
+           elasticitysubstitution, inputshare, pollutionelasticityNACE3, ParetoShape
            ) %>%
-    rename() %>%
+    rename(sigma= elasticitysubstitution, 
+           alpha=pollutionelasticityNACE3,
+           theta = ParetoShape) %>%
     group_by(year) %>%
-    mutate(Eds_DNK = DomDom+DomImp,
+    mutate(vshipROW = ROWROW + DomImp,
+           vshipDNK = DomDom + EXP,
+           Eds_DNK = DomDom+DomImp,
            Eds_ROW = ROWROW+EXP,
            Rds_DNK = DomDom+EXP,
            Rds_ROW = ROWROW+DomImp,
@@ -132,7 +137,39 @@ end_year <- 2014
            NXds_DNK = Rds_DNK - Eds_DNK,
            NXds_ROW = Rds_ROW - Eds_ROW,
            NXd_DNK = Rd_DNK - Ed_DNK,
-           NXd_ROW = Rd_ROW - Ed_ROW)
+           NXd_ROW = Rd_ROW - Ed_ROW,
+           
+           NXAds_DNK = sum(NXds_DNK*(sigma-1) * (theta-alpha+1) / (theta*sigma), na.rm=TRUE),
+           NXAds_ROW = sum(NXds_ROW*(sigma-1) * (theta-alpha+1) / (theta*sigma), na.rm=TRUE))
+  
+  dta_MATLAB_l54_63 <- dta_MATLAB_l1_35 %>%
+    filter(NACE_Name != 'Total Manufacturing') %>%
+    group_by(year) %>%
+    mutate(w_base_DNK = sum(vshipDNK),
+           w_base_ROW = sum(vshipROW)) %>%
+    ungroup() %>%
+    mutate(w_hat_DNK = w_base_DNK / w_base_DNK[year == base_year],
+           w_hat_ROW = w_base_ROW / w_base_ROW[year == base_year]) %>%
+    group_by(NACE_Name) %>%
+    mutate(lambda_hat_DomDom = lambda_DomDom / lambda_DomDom[year == base_year],
+           lambda_hat_DomImp = lambda_DomImp / lambda_DomImp[year == base_year],
+           lambda_hat_EXP = lambda_EXP / lambda_EXP[year == base_year],
+           lambda_hat_ROWROW = lambda_ROWROW / lambda_ROWROW[year == base_year],
+           shocks.beta_hat_DNK = beta_DNK / beta_DNK[year == base_year],
+           shocks.beta_hat_ROW = beta_ROW / beta_ROW[year == base_year],
+           Z_hat = CO2ElectricityHeat / CO2ElectricityHeat[year == base_year],
+           Rds_hat_DNK = Rds_DNK / Rds_DNK[year == base_year],
+           Rds_hat_ROW = Rds_ROW / Rds_ROW[year == base_year],
+           shocks.NXd_hat_DNK = NXd_DNK / NXd_DNK[year == base_year],
+           shocks.NXd_hat_ROW = NXd_ROW / NXd_ROW[year == base_year],
+           shocks.NXAds_hat_DNK = NXAds_DNK / NXAds_DNK[year == base_year],
+           shocks.NXAds_hat_ROW = NXAds_ROW / NXAds_ROW[year == base_year],
+           
+           # Matlab Line 62 & 63
+           #w_oNJY_DNK = w_hat_DNK, # not included because in MATLAB only because of formatting
+           #w_oNJY_ROW = w_hat_ROW, # not included because in MATLAB only because of formatting
+           M_hat_DNK = Rds_hat_DNK / w_hat_DNK,
+           M_hat_ROW = Rds_hat_ROW / w_hat_ROW)
 }
 
 # TEST environment for "nleqslv"
