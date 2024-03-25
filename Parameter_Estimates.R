@@ -314,17 +314,6 @@ end_year <- 2016 # End year to define time sequence under observation
   }
 }
 
-# Add 'dta_elast' to 'dta_inter' to create 'dta_parameter and save it
-{
-  dta_parameter <- rbind((dta_inter %>%
-                            left_join(dta_elast, join_by(NACE_Name == NACE_Name, ISIC_Name == ISIC_Name))),
-                         (dta_total %>%
-      left_join(dta_elast_tot, join_by(NACE_Name == NACE_Name, ISIC_Name == ISIC_Name))))
-    
-  
-  saveRDS(dta_parameter, file = "./Data/dta_parameter.rds")
-}
-
 # Create Dataframes with U.S. (Shapiro and Walker), and Germany (ZEW) values for pollution elasticity
 {
   # U.S. Dataframe
@@ -342,9 +331,9 @@ end_year <- 2016 # End year to define time sequence under observation
                                      "Pulp, paper, publishing","Rubber and plastics", "Textiles, wearing apparel, leather",      
                                      "Wood products"),
                        USpollutionelasticity = c(0.0557, 0.0205, 0.0212, 0.0019, 
-                                        0.0040, 0.0047, 0.0015, 0.0014, 
-                                        0.0016, 0.0023, 0.0303, 0.0019, 
-                                        0.0223, 0.0048, 0.0022, 0.0103),
+                                                 0.0040, 0.0047, 0.0015, 0.0014, 
+                                                 0.0016, 0.0023, 0.0303, 0.0019, 
+                                                 0.0223, 0.0048, 0.0022, 0.0103),
                        USParetoShape = c(10.01, 3.50, 9.91,
                                          4.80, 3.89, 3.75,
                                          4.19, 2.86, 5.6,
@@ -380,6 +369,21 @@ end_year <- 2016 # End year to define time sequence under observation
                                            2.102, 7.063, 6.841,
                                            16.871, 5.483, 7.124,
                                            5.147, 6.442))
+}
+
+# Add 'dta_elast' to 'dta_inter' to create 'dta_parameter and save it
+{
+  dta_parameter <- rbind((dta_inter %>%
+                            left_join(dta_elast, join_by(NACE_Name == NACE_Name, ISIC_Name == ISIC_Name))),
+                         (dta_total %>%
+      left_join(dta_elast_tot, join_by(NACE_Name == NACE_Name, ISIC_Name == ISIC_Name)))) %>%
+    left_join(dta_US %>% select(NACE_Name, USParetoShape, USParetoSE),
+              join_by(NACE_Name == NACE_Name)) %>%
+    rename(ParetoShape = USParetoShape,
+           ParetoSE = USParetoSE)
+    
+  
+  saveRDS(dta_parameter, file = "./Data/dta_parameter.rds")
 }
 
 # Table 2: Exporting all Parameters for base year to LATEX (NACE)
