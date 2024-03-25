@@ -120,13 +120,15 @@ end_year <- 2014
            beta_ROW = Eds_ROW/Eds_ROW[NACE_Name == "Total Manufacturing"],
            
            lambda_DomDom = DomDom/(Eds_DNK),
-           lambda_DomImp = DomDom/(Eds_DNK),
+           lambda_DomImp = DomImp/(Eds_DNK),
            lambda_EXP = EXP/(Eds_ROW),
            lambda_ROWROW = ROWROW/(Eds_ROW),
+           
            zeta_DomDom = DomDom/(Rds_DNK),
-           zeta_DomImp = DomDom/(Rds_DNK),
-           zeta_EXP = EXP/(Rds_ROW),
+           zeta_DomImp = DomImp/(Rds_ROW),
+           zeta_EXP = EXP/(Rds_DNK),
            zeta_ROWROW = ROWROW/(Rds_ROW),
+           
            Ed_DNK = DomDom[NACE_Name == 'Total Manufacturing'] +
              DomImp[NACE_Name == 'Total Manufacturing'],
            Ed_ROW = ROWROW[NACE_Name == 'Total Manufacturing'] +
@@ -195,7 +197,9 @@ end_year <- 2014
            
            shocks.Gamma_hat_star_ROWROW = (lambda_hat_ROWROW/(M_hat_ROW * (w_hat_ROW^(-theta)))) *
              (((shocks.beta_hat_ROW/w_hat_ROW) * (Rd_ROW-NXd_ROW) /
-                 (Rd_ROW[year == base_year] - NXd_ROW[year == base_year]))^pwrE))
+                 (Rd_ROW[year == base_year] - NXd_ROW[year == base_year]))^pwrE),
+           
+           t_hat = (M_hat_DNK * w_hat_DNK)/Z_hat)
     
 }
 
