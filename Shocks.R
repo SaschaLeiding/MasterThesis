@@ -199,7 +199,9 @@ end_year <- 2014
              (((shocks.beta_hat_ROW/w_hat_ROW) * (Rd_ROW-NXd_ROW) /
                  (Rd_ROW[year == base_year] - NXd_ROW[year == base_year]))^pwrE),
            
-           t_hat = (M_hat_DNK * w_hat_DNK)/Z_hat)
+           t_hat = (M_hat_DNK * w_hat_DNK)/Z_hat,
+           
+           shocks.Gamma_hat_t = t_hat^((-alpha*theta)/(1-alpha)))
     
 }
 
