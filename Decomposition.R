@@ -30,7 +30,7 @@ Print Plots as PDF in 'Landscape' 8.00 x 6.00
 # Define variables for flexibility in Code
 ghg <- 'CO2Total' # Greenhouse gas for the analysis to allow flexibility in choice
 base_year <- 2003 # Base year for the normalizing the 3 effects
-end_year <- 2016 # End year to define time sequence under observation
+end_year <- 2014 # End year to define time sequence under observation
 
 # Decomposition
 {
@@ -227,11 +227,11 @@ end_year <- 2016 # End year to define time sequence under observation
   dta_technique <- dta_decomp %>% 
     filter(classsystem == 'NACE') %>% 
     select(NACE_Name, year, techn, scale, comp, scale_comp_techn) %>%
-    mutate(line_size = ifelse(NACE_Name == "Total Manufacturing", 1, 0.5)) #%>% 
-    #filter(NACE_Name %in% c("Food, beverages, tobacco","Coke, petroleum",
-    #                        "Chemicals and pharmaceuticals",
-    #                        "Non-metallic mineral","Metal products, electronics, machinery",
-    #                        "Total Manufacturing"))
+    mutate(line_size = ifelse(NACE_Name == "Total Manufacturing", 1, 0.5)) %>% 
+    filter(NACE_Name %in% c("Food, beverages, tobacco","Coke, petroleum",
+                            "Chemicals and pharmaceuticals",
+                            "Non-metallic mineral","Metal products, electronics, machinery",
+                            "Total Manufacturing"))
   
   # Legend Titles
   {
@@ -295,7 +295,6 @@ Composition for all negative
 "
 
 # Stylized Facts Table
-### NEED TO FIX
 {
   dta_style <- dta_decomp %>%
     filter(classsystem == "NACE" & year == 2003) %>%
@@ -310,7 +309,7 @@ Composition for all negative
     arrange(NACE_Code) %>%
     
     left_join(dta_decomp %>%
-                filter(classsystem == "NACE" & (year %in% c(2003,2016))) %>%
+                filter(classsystem == "NACE" & (year %in% c(base_year, end_year))) %>%
                 select(NACE_Name, year, !!sym(ghg), output_share, realoutput, realexpend, realcostEnergy) %>%
                 #mutate_if(is.numeric, ~round(.x, digits = 0)) %>%
                 group_by(NACE_Name) %>%
