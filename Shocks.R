@@ -10,10 +10,12 @@ The input for this script is the data 'dta_parameter.rds' from the script
   #install.packages("tidyverse")
   #install.packages("xtable")
   #install.packages("nleqslv")
+  #install.packages("patchwork")
   
   library(tidyverse)
   library(xtable)
   library(nleqslv)
+  library(patchwork)
 }
 
 # Load Data
@@ -44,9 +46,9 @@ end_year <- 2014
     ungroup()
 }
 
-# Plot for Chemicals, Food, Electrical (ISIC) - 'Landscape' 8.00 x 6.00
+# Plot with exogeneous wage & firm entry for Chemicals, Food, Electrical (ISIC) - 'Landscape' 8.00 x 6.00
 {
-  dta_env_plot <- dta_shocks %>%
+  dta_env_plot_exg <- dta_shocks %>%
     filter(#NACE_Name == 'Total Manufacturing' &
           NACE_Name %in% c('Total Manufacturing',"Chemicals and pharmaceuticals",
                            "Food, beverages, tobacco", "Metal products, electronics, machinery") & 
@@ -54,7 +56,8 @@ end_year <- 2014
     select(NACE_Name, year, envregulation) 
   
   year_breaks <- seq(from=base_year, to=end_year, by = 2)
-  lplot_env <- ggplot(data = dta_env_plot, aes(x = year, y = envregulation, color = NACE_Name, group = NACE_Name)) +
+  lplot_env_exg <- ggplot(data = dta_env_plot_exg,
+                      aes(x = year, y = envregulation, color = NACE_Name, group = NACE_Name)) +
     geom_line() +
     labs(#title = "Development of various Greenhouse Gas Emissions",
       x = "Year",
@@ -63,7 +66,7 @@ end_year <- 2014
     scale_x_continuous(breaks = year_breaks) +
     theme_classic() +
     theme(legend.position = c(.15, .78))
-  lplot_env
+  lplot_env_exg
 }
 
 # Table 5: Exporting Chemical Industry values for Environmental Shocks
@@ -90,11 +93,11 @@ end_year <- 2014
 
 # Merge final data
 {
-  dta_policy <- dta_parameter %>%
-    left_join(dta_shocks %>%
-                mutate(year = as.character(year)) %>%
-                select(ISIC_Name, NACE_Name, year, envregulation),
-              join_by(ISIC_Name == ISIC_Name, NACE_Name == NACE_Name, year == year))
+  #dta_policy <- dta_parameter %>%
+  #  left_join(dta_shocks %>%
+  #              mutate(year = as.character(year)) %>%
+  #              select(ISIC_Name, NACE_Name, year, envregulation),
+  #            join_by(ISIC_Name == ISIC_Name, NACE_Name == NACE_Name, year == year))
 }
 
 # Data for MATLAB version
@@ -201,7 +204,26 @@ end_year <- 2014
            
            t_hat = (M_hat_DNK * w_hat_DNK)/Z_hat,
            
-           shocks.Gamma_hat_t = t_hat^((-alpha*theta)/(1-alpha)))
+           shocks.Gamma_hat_t = t_hat^((-alpha*theta)/(1-alpha)),
+           shocks.Gamma_hat_foreign_DomDom = 1,
+           shocks.Gamma_hat_foreign_EXP = 1,
+           shocks.Gamma_hat_foreign_DomImp = shocks.Gamma_hat_star_DomImp,
+           shocks.Gamma_hat_foreign_ROWROW = shocks.Gamma_hat_star_ROWROW,
+           
+           shocks.Gamma_hat_domestic_DomDom = shocks.Gamma_hat_star_DomDom/shocks.Gamma_hat_t,
+           shocks.Gamma_hat_domestic_EXP = shocks.Gamma_hat_star_EXP/shocks.Gamma_hat_t,
+           shocks.Gamma_hat_domestic_DomImp = NA,
+           shocks.Gamma_hat_domestic_ROWROW = NA)
+  
+  #wwM_hat = w_hat_DNK # Matrix where the first row is w_hat_DNK and the rest M_hat in general
+                        # second row the values for ROW industry 1
+                        # third row the values for DNK industry 1
+                        # fourth row the values for ROW industry 2
+                        # fifth row the values for DNK industry 1
+                      #...
+                        # 34th row the values for ROW industry 17
+                        # 35th row the values for DNK industry 17
+  # takes both M_hat (ROW and DNK)
     
 }
 
@@ -230,6 +252,82 @@ end_year <- 2014
   
   #algorithm_data <- d
 }
+
+# Plot with exogeneous wage & firm entry for Chemicals, Food, Electrical (ISIC) - 'Landscape' 8.00 x 6.00
+{
+  dta_env_plot_end <- dta_MATLAB_l66_81 %>%
+    filter(#NACE_Name == 'Total Manufacturing' &
+      NACE_Name %in% c('Total Manufacturing',"Chemicals and pharmaceuticals",
+                       "Food, beverages, tobacco", "Metal products, electronics, machinery") & 
+        year >= base_year & year <= end_year) %>%
+    select(NACE_Name, year, t_hat) %>%
+    mutate(year = as.numeric(year))
+  
+  year_breaks <- seq(from=base_year, to=end_year, by = 2)
+  lplot_env_end <- ggplot(data = dta_env_plot_end,
+                          aes(x = year, y = t_hat, color = NACE_Name, group = NACE_Name)) +
+    geom_line() +
+    labs(#title = "Development of various Greenhouse Gas Emissions",
+      x = "Year",
+      y = paste0("Base ", base_year, " = 100"),
+      color = NULL) +
+    scale_x_continuous(breaks = year_breaks) +
+    theme_classic() +
+    theme(legend.position = c(.15, .78))
+  lplot_env_end
+}
+
+# Plot Endogeneous Firm Entry and Wages
+{
+  dta_endog_lplot <- dta_MATLAB_l66_81 %>%
+    group_by(year) %>%
+    mutate(avgM_hat_DNK = mean(M_hat_DNK),
+           avgM_hat_ROW = mean(M_hat_ROW)) %>%
+    select(NACE_Name, year, w_hat_DNK, w_hat_ROW, avgM_hat_DNK, avgM_hat_ROW) %>%
+    filter(NACE_Name == "Basic Metals") %>% # arbitrarily chosen as all values are averages across sectors
+    pivot_longer(cols = 3:ncol(.), names_to = "Variable", values_to = "Value" ) %>%
+    mutate(country = ifelse(str_detect(Variable, "ROW$"), "ROW", "DNK"),
+           Value = Value*100) %>%
+    #mutate(across(is.numeric, ~.x*100)) %>%
+    ungroup()
+  
+  plot_Wages <- ggplot(data = (dta_endog_lplot %>%
+                                     filter(str_detect(Variable, "w_hat"))),
+                           aes(x = year, y = Value, color = country, group = country)) +
+    geom_line() +
+    #scale_x_continuous(breaks = seq(2003, max(dta_endog_lplot$year, na.rm = TRUE), by = 1), limits = c(2003, NA)) +
+    labs(x = "Year",
+         y = paste0("Base ", base_year, " = 100"),
+         color = NULL)+
+    theme_classic()
+  plot_Wages
+  
+  plot_FirmEntry <- ggplot(data = (dta_endog_lplot %>%
+                                filter(str_detect(Variable, "M_hat"))),
+                      aes(x = year, y = Value, color = country, group = country)) +
+    geom_line() + 
+    labs(x = "Year",
+         y = paste0("Base ", base_year, " = 100"),
+         color = NULL) +
+    theme_classic()
+  plot_FirmEntry
+  
+  # Plot in 2x1 - Export as Landscape as 11.00 - 7.00
+  combined_Endo_lplot <- plot_Wages + plot_FirmEntry + 
+  plot_layout(guides = "collect") & 
+  theme(legend.position = "bottom",
+       legend.title = element_blank())
+  combined_Endo_lplot
+  
+}
+
+# Merge data
+{
+  dta_policy <- dta_parameter %>%
+    left_join((dta_MATLAB_l66_81 %>%
+                 select(NACE_Name, year, t_hat)), join_by(NACE_Name == NACE_Name, year == year))
+}
+
 
 # Save Data
 {

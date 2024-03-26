@@ -25,8 +25,9 @@ this Script is to
 {
   ghg <- 'CO2ElectricityHeat'
   energy_type <- ifelse(!!sym(ghg) == 'CO2ElectricityHeat', 'realcostEnergyElectricityHeat', 'realcostEnergy')
-  y_var <- 'envregulation'
+  y_var <- 't_hat'
   base_year <- '2003'
+  end_year <- '2014'
 }
 
 # Plot Fit-Exposure - fit-tariff x energy use per industry
@@ -36,6 +37,7 @@ this Script is to
 # Sum by fuel type of change in Electricity Generation x FIT in given year
 {
   dta_exposure <- dta_policy %>%
+    filter(year >= base_year & year <= end_year) %>%
     mutate(across(starts_with('Elect_'), ~.x/Elect_Total, .names="Share{.col}")) %>% # Calc. Electricity Share of each fuel
     select(!c("Elect_Hydro", "Elect_Geothermal", "Elect_Wind","Elect_SolarThermal",
               "Elect_Solar", "Elect_Marine", "Elect_Biomass", "Elect_Waste")) %>%
@@ -82,11 +84,11 @@ testtt <- dta_totalexposure %>%
 # Run Fixed_Effects Estimation
 {
   # Pooled OLS
-  model_simple <- lm(envregulation ~ norm_Exposure  + norm_ElectPrice , data = testtt)
+  model_simple <- lm(t_hat ~ norm_Exposure  + norm_ElectPrice , data = testtt)
   summary(model_simple)
   
   # Fixed Effects with only FIT Exposure and year FE
-  model_fe_simple <- felm(envregulation ~ norm_Exposure | # Model Variable
+  model_fe_simple <- felm(t_hat ~ norm_Exposure | # Model Variable
                         year | # Fixed Effects
                         0 | # Instrument
                         NACE_Name, # Variables for Cluster-robust Standard errors
@@ -94,7 +96,7 @@ testtt <- dta_totalexposure %>%
   summary(model_fe_simple)
   
   # Fixed Effects with FIT Exposure & Electricity and year FE
-  model_fe_full <- felm(envregulation ~ norm_Exposure + norm_ElectPrice | # Model Variable
+  model_fe_full <- felm(t_hat ~ norm_Exposure + norm_ElectPrice | # Model Variable
                      year | # Fixed Effects
                      0 | # Instrument
                      NACE_Name, # Variables for Cluster-robust Standard errors
@@ -102,7 +104,7 @@ testtt <- dta_totalexposure %>%
   summary(model_fe_full)
   
   # Fixed Effects with FIT Exposure & Electricity and year and sector FE
-  model_doublefe_full <- felm(envregulation ~ norm_Exposure + norm_ElectPrice | # Model Variable
+  model_doublefe_full <- felm(t_hat ~ norm_Exposure + norm_ElectPrice | # Model Variable
                           year + NACE_Name| # Fixed Effects
                           0 | # Instrument
                           NACE_Name, # Variables for Cluster-robust Standard errors
@@ -122,15 +124,5 @@ testtt <- dta_totalexposure %>%
             omit.stat=c("LL", "ser", "f"), 
             align=TRUE)
 }
-
-bilat_11 <- c(0.1053, 0.0434, 0.0143, 0.0545, 0.0264, 0.066, 0.0288, 0.0268,
-              0.0547, 0.0455, 0.0670, 0.0419, 0.0305, 0.0122, 0.0677, 0.0146,
-              0.0226)
-beta <- c(0.1389, 0.0592, 0.0195, 0.1028, 0.0603, 0.0948, 0.0364, 0.0218, 0.0488,
-         0.0576, 0.0582, 0.0500, 0.0420, 0.0243, 0.0984, 0.0422, 0.0448)
-vship_01 <-c(0.1070 , 0.0473, 0.0148, 0.0557, 0.0281, 0.0681, 0.0296, 0.0273, 0.0567,
-             0.0463, 0.0701, 0.0456, 0.0337, 0.0133, 0.0743, 0.0157, 0.0246)
-vship_02 <- c( 0.0350, 0.0117, 0.0047, 0.0258, 0.0141, 0.0250, 0.0089, 0.0052, 0.0113,
-               0.0142, 0.0150, 0.0120, 0.0092, 0.0064, 0.0208, 0.0126, 0.0097)
 
 
