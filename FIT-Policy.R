@@ -23,8 +23,6 @@ this Script is to
 
 # Define variables for flexibility in Code
 {
-  ghg <- 'CO2ElectricityHeat'
-  energy_type <- ifelse(!!sym(ghg) == 'CO2ElectricityHeat', 'realcostEnergyElectricityHeat', 'realcostEnergy')
   y_var <- 't_hat'
   base_year <- '2003'
   end_year <- '2014'

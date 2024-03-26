@@ -98,7 +98,7 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
 
 # Define variables for code flexibility
 {
-  ghg <-'CO2Total'  #'CO2ElectricityHeat' # Greenhouse gas for the analysis to allow flexibility in choice
+  ghg <-'CO2ElectricityHeat'  #'CO2Total' # Greenhouse gas for the analysis to allow flexibility in choice
   varname_ghgintensity <- paste0(ghg, "_intensity")
   base_year <- 2003
 }
@@ -1460,6 +1460,6 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
 # Save the Data
 {
   saveRDS(dta_decomp, file = "./Data/dta_full.rds")
-  saveRDS(dta_analysis, file = "./Data/dta_analysis.rds")
+  saveRDS(dta_analysis, file = "./Data/dta_analysis_elect.rds")
   #saveRDS(dta_internat, file = "./Data/dta_internat.rds")
 }

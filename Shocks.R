@@ -21,12 +21,11 @@ The input for this script is the data 'dta_parameter.rds' from the script
 # Load Data
 {
   dta_parameter <- readRDS("./Data/dta_parameter.rds")
-  dta_internat <- readRDS("./Data/dta_internat.rds")
+  #dta_internat <- readRDS("./Data/dta_internat.rds")
 }
 
 # Define variables for flexibility in Code
-ghg <- 'CO2ElectricityHeat' # Greenhouse gas for the analysis to allow flexibility in choice
-#costs <- 'realexpend' # Define column used as Costs for calculations
+ghg <- 'CO2ElectricityHeat' # 'CO2Total' # Greenhouse gas for the analysis to allow flexibility in choice
 alpha <- 0.011 # mean Pollution elasticity
 base_year <- 2003 # Base year for parameter
 end_year <- 2014
@@ -167,7 +166,7 @@ end_year <- 2014
            lambda_hat_ROWROW = lambda_ROWROW / lambda_ROWROW[year == base_year],
            shocks.beta_hat_DNK = beta_DNK / beta_DNK[year == base_year],
            shocks.beta_hat_ROW = beta_ROW / beta_ROW[year == base_year],
-           Z_hat = CO2ElectricityHeat / CO2ElectricityHeat[year == base_year],
+           Z_hat = !!sym(ghg) / (!!sym(ghg))[year == base_year],
            Rds_hat_DNK = Rds_DNK / Rds_DNK[year == base_year],
            Rds_hat_ROW = Rds_ROW / Rds_ROW[year == base_year],
            shocks.NXd_hat_DNK = NXd_DNK / NXd_DNK[year == base_year],
@@ -253,7 +252,7 @@ end_year <- 2014
   #algorithm_data <- d
 }
 
-# Plot with exogeneous wage & firm entry for Chemicals, Food, Electrical (ISIC) - 'Landscape' 8.00 x 6.00
+# Plot with Environmental regulation tax selected Industries - 'Landscape' 8.00 x 6.00
 {
   dta_env_plot_end <- dta_MATLAB_l66_81 %>%
     filter(#NACE_Name == 'Total Manufacturing' &
@@ -261,7 +260,8 @@ end_year <- 2014
                        "Food, beverages, tobacco", "Metal products, electronics, machinery") & 
         year >= base_year & year <= end_year) %>%
     select(NACE_Name, year, t_hat) %>%
-    mutate(year = as.numeric(year))
+    mutate(year = as.numeric(year),
+           t_hat = t_hat * 100)
   
   year_breaks <- seq(from=base_year, to=end_year, by = 2)
   lplot_env_end <- ggplot(data = dta_env_plot_end,
@@ -273,7 +273,7 @@ end_year <- 2014
       color = NULL) +
     scale_x_continuous(breaks = year_breaks) +
     theme_classic() +
-    theme(legend.position = c(.15, .78))
+    theme(legend.position = c(.20, .85))
   lplot_env_end
 }
 
@@ -327,7 +327,6 @@ end_year <- 2014
     left_join((dta_MATLAB_l66_81 %>%
                  select(NACE_Name, year, t_hat)), join_by(NACE_Name == NACE_Name, year == year))
 }
-
 
 # Save Data
 {

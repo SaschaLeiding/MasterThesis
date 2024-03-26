@@ -29,15 +29,16 @@ Attention: Variable 'ghg' must be the same in all Scripts
 
 # Load Data
 {
-  dta_analysis <- readRDS("./Data/dta_analysis.rds")
+  dta_analysis <- readRDS("./Data/dta_analysis_elect.rds")
 }
 
 # Define variables for flexibility in Code
-ghg <- 'CO2Total' # Greenhouse gas for the analysis to allow flexibility in choice
+ghg <- 'CO2Total' #'CO2ElectricityHeat' # Greenhouse gas for the analysis to allow flexibility in choice
 costs <- 'realexpend' # Define column used as Costs for calculations
+energycost <- 'realcostEnergy' # 'realcostEnergyElectricityHeat'
 alpha <- 0.011 # mean Pollution elasticity
 base_year <- 2003 # Base year for parameter
-end_year <- 2016 # End year to define time sequence under observation
+end_year <- 2014 # End year to define time sequence under observation
 
 # Elasticity Estimation for by each sector
 {
@@ -63,7 +64,7 @@ end_year <- 2016 # End year to define time sequence under observation
       group_by(NACE_Name, ISIC_Name) %>%
       arrange(year, .by_group = TRUE) %>%
       mutate(lnrealoutput = log(realoutput),
-             lnrealcostEnergy = log(realcostEnergy),
+             lnrealcostEnergy = log((!!sym(energycost))),
              lnghg = log(!!sym(ghg)),
              energyshare = realcostEnergy/realoutput,
              lnenergyshare = log(energyshare),
@@ -216,7 +217,7 @@ end_year <- 2016 # End year to define time sequence under observation
       # NACE_1: Calculate Pollution Elasticity with ZEW (2023) Estimation Method
       arrange(year, .by_group = TRUE) %>%
       mutate(lnrealoutput = log(realoutput),
-             lnrealcostEnergy = log(realcostEnergy),
+             lnrealcostEnergy = log((!!sym(energycost))),
              lnghg = log(!!sym(ghg)),
              energyshare = realcostEnergy/realoutput,
              lnenergyshare = log(energyshare),
