@@ -103,7 +103,7 @@ end_year <- 2014
 {
   dta_MATLAB_l1_35 <- dta_parameter %>%
     filter(year <= end_year) %>%
-    select(NACE_Name, year, !!sym(ghg),
+    select(NACE_Name, NACE_Code, year, !!sym(ghg),
            EXP, DomDom, DomImp, ROWROW, vship,
            elasticitysubstitution, inputshare, pollutionelasticityNACE3, ParetoShape) %>%
     group_by(NACE_Name) %>%
@@ -233,8 +233,9 @@ end_year <- 2014
     
     rate <- x[1] * x[2] - 5
     shape <- sqrt(x[1] * x[2]^2) - 10
+    testyear <- base_year+1
     
-    return(c(rate, shape))
+    return(c(rate, testyear))
   }
   
   nleqslv(x=c(0.75, 1.25), # numeric vector with an initial guess of the root of the function # Shapiro choose 0.75 until 1.25
@@ -242,14 +243,216 @@ end_year <- 2014
           global = 'pwldog') 
 }
 
+# create wwM_hat & base year dataframe
+{
+  w_hat <- dta_MATLAB_l66_81 %>% 
+    filter(NACE_Name == 'Basic Metals') %>%
+    select(year, w_hat_DNK) %>%
+    pivot_wider(names_from = year, values_from = w_hat_DNK) %>%
+    mutate(NACE_Name = 'w_hat', country = 'DNK')%>%
+    ungroup()
+  
+  M_hat <- dta_MATLAB_l66_81 %>%
+    select(NACE_Name, year, M_hat_DNK, M_hat_ROW) %>%
+    pivot_longer(cols = c(M_hat_DNK, M_hat_ROW), names_to = "country", values_to = "M_hat") %>%
+    mutate(country = ifelse(country == "M_hat_DNK", "DNK", "ROW")) %>% 
+    arrange(NACE_Name, year, desc(country)) %>%
+    pivot_wider(names_from = year, values_from = M_hat)%>%
+    ungroup()
+  
+  wwM_hat <- rbind(w_hat, M_hat) %>%
+    ungroup()
+  
+  dta_base <- dta_MATLAB_l66_81 %>% filter(year == base_year)
+}
+
 # Apply algorithm to "nleqslv"
 {
-  # Factors used: Trade_od,s & Emissions Z_o,s, three parameters
-  # Net Exports = countrys exports - imports
-  # from example in 'TEST environment' the x-values are the potential values used in shocks
-  # need to return the wages and firm entry changes that make the equation hold
-  
-  #algorithm_data <- d
+  p4 <- function() {
+    # Define datasets as 1 to calculate shocks
+    NXd_hat <- dta_MATLAB_l66_81 %>%
+      filter(year == n) %>% select(NACE_Name, year) %>%
+      mutate(NXd_hat_DNK = 1, NXd_hat_ROW = 1)
+    NXAds_hat <- dta_MATLAB_l66_81 %>%
+      filter(year == n) %>% select(NACE_Name, year) %>%
+      mutate(NXAds_hat_DNK = 1, NXAds_hat_ROW = 1)
+    
+    ## HOW TO BE ADJUSTED???
+    Gamma_hat <- dta_MATLAB_l66_81 %>%
+      filter(year == n) %>% select(NACE_Name, year) %>%
+      mutate(ones = 1)
+    
+    beta_hat <- dta_MATLAB_l66_81 %>%
+      filter(year == n) %>% select(NACE_Name, year) %>%
+      mutate(beta_hat_DNK = 1, beta_hat_ROW = 1)
+    
+    # Change datasets depending on what shock to calculate
+    if (loop_shock == 1){
+      Gamma_hat <-  dta_MATLAB_l66_81 %>%
+        filter(year == n) %>%
+        select(NACE_Name, year, starts_with('shocks.Gamma_hat_foreign'))
+    }
+    if (loop_shock == 2){
+      Gamma_hat <-  dta_MATLAB_l66_81 %>%
+        filter(year == n) %>%
+        select(NACE_Name, year, starts_with('shocks.Gamma_hat_domestic'))
+    }
+    if (loop_shock == 3){
+      Gamma_hat <-  dta_MATLAB_l66_81 %>%
+        filter(year == n) %>%
+        select(NACE_Name, year, starts_with("shocks.Gamma_hat_t"))
+    }
+    if (loop_shock == 4){
+      beta_hat <-  dta_MATLAB_l66_81 %>%
+        filter(year == n) %>%
+        select(NACE_Name, year, starts_with("shocks.beta_hat_")) %>%
+        rename(beta_hat_DNK = shocks.beta_hat_DNK,
+               beta_hat_ROW = shocks.beta_hat_ROW)
+    }
+    if (loop_shock == 5){
+      NXd_hat <-  dta_MATLAB_l66_81 %>%
+        filter(year == n) %>%
+        select(NACE_Name, year, starts_with("shocks.NXd_hat_")) %>%
+        rename(NXd_hat_DNK = shocks.NXd_hat_DNK,
+               NXd_hat_ROW = shocks.NXd_hat_ROW)
+      
+      NXAds_hat <-  dta_MATLAB_l66_81 %>%
+        filter(year == n) %>%
+        select(NACE_Name, year, starts_with("shocks.NXAds_hat_")) %>%
+        rename(NXAds_hat_DNK = shocks.NXAds_hat_DNK,
+               NNXAds_hat_ROW = shocks.NXAds_hat_ROW)
+    }
+    if (loop_shock == 6){
+      Gamma_hat <-  dta_MATLAB_l66_81 %>%
+        filter(year == n) %>%
+        select(NACE_Name, year, starts_with('shocks.Gamma_hat_star'))
+      
+      beta_hat <-  dta_MATLAB_l66_81 %>%
+        filter(year == n) %>%
+        select(NACE_Name, year, starts_with("shocks.beta_hat_")) %>%
+        rename(beta_hat_DNK = shocks.beta_hat_DNK,
+               beta_hat_ROW = shocks.beta_hat_ROW)
+      
+      NXd_hat <-  dta_MATLAB_l66_81 %>%
+        filter(year == n) %>%
+        select(NACE_Name, year, starts_with("shocks.NXd_hat_"))%>%
+        rename(NXd_hat_DNK = shocks.NXd_hat_DNK,
+               NXd_hat_ROW = shocks.NXd_hat_ROW)
+      
+      NXAds_hat <-  dta_MATLAB_l66_81 %>%
+        filter(year == n) %>%
+        select(NACE_Name, year, starts_with("shocks.NXAds_hat_"))%>%
+        rename(NXAds_hat_DNK = shocks.NXAds_hat_DNK,
+               NNXAds_hat_ROW = shocks.NXAds_hat_ROW)
+    }
+    
+    ww <- (wwM_hat %>% select(-NACE_Name, -country))[1:(N-1),]# either 1 or the whole w_hat
+    M_hat <- wwM_hat[2:nrow(wwM_hat),]
+    wA = (1- ww*sum(dta_base$Rds_DNK))/sum(dta_base$Rds_ROW)
+    w_hat <- rbind(wA, ww)
+    w_hat_long <- w_hat %>%
+      mutate(country = ifelse(row_number() %% 2 == 0, "_DNK", "_ROW")) %>%
+      pivot_longer(cols = 1:12, names_to = 'year') %>%
+      pivot_wider(names_from = country,
+                  names_prefix = 'w_hat',
+                  values_from = value)
+    
+    M_oNNJY <- M_hat %>%# and take all year two times 2003...2014,2003...2014
+      pivot_longer(cols = "2003":"2014", names_to = 'year') %>%
+      pivot_wider(names_from = country,
+                  names_prefix = 'M_hat_',
+                  values_from = value)
+    
+    # ham - line 27
+    {
+      dta_ham <- Gamma_hat %>%
+        left_join((w_hat %>%
+                     mutate(country = ifelse(row_number() %% 2 == 0, "_DNK", "_ROW")) %>%
+                     pivot_longer(cols = 1:12, names_to = 'year') %>%
+                     pivot_wider(names_from = country,
+                                 names_prefix = 'w_hat',
+                                 values_from = value)),
+                  join_by(year == year)) %>%
+        left_join((dta_MATLAB_l66_81 %>%
+                     select(NACE_Name, year, theta)),
+                  join_by(year == year, NACE_Name == NACE_Name)) %>%
+        ungroup()
+      
+      if (loop_shock %in% c(1,2,6)){
+        ham <- dta_ham %>%
+          mutate(across(ends_with("_DomDom"), ~ .x * (w_hat_DNK^(-theta)), .names = "ham_DomDom"),
+                 across(ends_with("_EXP"), ~ .x * (w_hat_DNK^(-theta)), .names = "ham_EXP"),
+                 across(ends_with("_DomImp"), ~ .x * (w_hat_ROW^(-theta)), .names = "ham_DomImp"),
+                 across(ends_with("_ROWROW"), ~ .x * (w_hat_ROW^(-theta)), .names = "ham_ROWROW")) %>%
+          ungroup() %>%
+          select(NACE_Name, year, starts_with('ham'))
+      } else {
+        if (loop_shock == 3){
+          ham <- dta_ham %>%
+            mutate(ham_DomDom = shocks.Gamma_hat_t * (w_hat_DNK^(-theta)),
+                   ham_EXP = shocks.Gamma_hat_t * (w_hat_DNK^(-theta)),
+                   ham_DomImp = 1,
+                   ham_ROWROW = 1) %>%
+            select(NACE_Name, year, starts_with('ham'))
+        } else{
+          ham <- dta_MATLAB_l66_81 %>% 
+            filter(year == n) %>% select(NACE_Name, year) %>% 
+            mutate(ham_DomDom = 1,
+                   ham_EXP = 1,
+                   ham_DomImp = 1,
+                   ham_ROWROW = 1)
+        }
+      }
+    }
+    
+    # diff 1 - line 28
+    {
+      diff1 <- ham %>%
+        left_join(NXd_hat, join_by(NACE_Name == NACE_Name, year == year)) %>%
+        left_join(beta_hat, join_by(NACE_Name == NACE_Name, year == year)) %>%
+        left_join(M_oNNJY, join_by(NACE_Name == NACE_Name, year == year)) %>%
+        left_join(w_hat_long, join_by(year == year)) %>%
+        
+        left_join(dta_base %>% 
+                    select(NACE_Name,
+                           lambda_DomDom, lambda_DomImp, lambda_EXP, lambda_ROWROW,
+                           Rds_DNK, Rds_ROW, NXd_DNK, NXd_ROW, Rd_DNK, Rd_ROW,
+                           zeta_DomDom, zeta_DomImp, zeta_EXP, zeta_ROWROW),
+                  join_by(NACE_Name == NACE_Name)) %>%
+        
+        mutate(denom_DomDom = lambda_DomDom*ham_DomDom*M_hat_DNK,
+               denom_EXP = lambda_EXP*ham_EXP*M_hat_DNK,
+               denom_DomImp = lambda_DomImp*ham_DomImp*M_hat_ROW,
+               denom_ROWROW = lambda_ROWROW *ham_ROWROW*M_hat_ROW,
+               nom_ROW = (w_hat_ROW*sum(Rds_ROW)-NXd_hat_ROW*NXd_ROW) / (Rd_ROW-NXd_ROW),
+               nom_DNK = (w_hat_DNK*sum(Rds_DNK)-NXd_hat_DNK*NXd_DNK) / (Rd_DNK-NXd_DNK),
+               prod_DomDom = zeta_DomDom * ham_DomDom * beta_hat_DNK,
+               prod_DomImp = zeta_DomImp * ham_DomImp * beta_hat_DNK,
+               prod_EXP = zeta_EXP * ham_EXP * beta_hat_ROW,
+               prod_ROWROW = zeta_ROWROW * ham_ROWROW * beta_hat_ROW,
+               X_DomDom = prod_DomDom * nom_DNK /denom_DomDom,
+               X_EXP = prod_EXP * nom_DNK /denom_EXP,
+               X_DomImp = prod_DomImp * nom_ROW /denom_DomImp,
+               X_ROWROW = prod_ROWROW * nom_ROW /denom_ROWROW,
+               X_DNK = X_DomDom + X_EXP,
+               X_ROW = X_ROWROW + X_DomImp,
+               diff1_DNK = w_hat_DNK - X_DNK,
+               diff1_ROW = w_hat_ROW - X_ROW) %>%
+        select(NACE_Name, year, diff1_DNK, diff1_ROW)
+    }
+}
+
+{
+  Y <- length(unique(dta_MATLAB_l66_81$year))
+  N <- 2
+  theta <- unique(dta_MATLAB_l66_81$theta)
+  for (n in 1:Y) {
+    for(loop_shock in 1:5){
+      nleqslv(x=c(0.75, 1.25), # numeric vector with an initial guess of the root of the function # Shapiro choose 0.75 until 1.25
+              fn=p4, #A function of x returning a vector of function values with the same length as the  vector x.
+              global = 'pwldog')
+    }
+  }
 }
 
 # create t_hat for Total Manufacturing
@@ -260,6 +463,7 @@ end_year <- 2014
     summarise(t_hat = mean(t_hat)) %>%
     mutate(NACE_Name = 'Total Manufacturing')
 }
+
 # Plot with Environmental regulation tax selected Industries - 'Landscape' 8.00 x 6.00
 {
   dta_env_plot_end <- dta_MATLAB_l66_81 %>%
