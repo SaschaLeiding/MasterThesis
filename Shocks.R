@@ -252,14 +252,23 @@ end_year <- 2014
   #algorithm_data <- d
 }
 
+# create t_hat for Total Manufacturing
+{
+  dta_env_Manuf <- dta_MATLAB_l66_81 %>%
+    select(NACE_Name, year, t_hat) %>%
+    group_by(year) %>%
+    summarise(t_hat = mean(t_hat)) %>%
+    mutate(NACE_Name = 'Total Manufacturing')
+}
 # Plot with Environmental regulation tax selected Industries - 'Landscape' 8.00 x 6.00
 {
   dta_env_plot_end <- dta_MATLAB_l66_81 %>%
-    filter(#NACE_Name == 'Total Manufacturing' &
-      NACE_Name %in% c('Total Manufacturing',"Chemicals and pharmaceuticals",
+    filter(NACE_Name %in% c('Total Manufacturing',"Chemicals and pharmaceuticals",
                        "Food, beverages, tobacco", "Metal products, electronics, machinery") & 
         year >= base_year & year <= end_year) %>%
     select(NACE_Name, year, t_hat) %>%
+    full_join(dta_env_Manuf) %>%
+    group_by(year) %>%
     mutate(year = as.numeric(year),
            t_hat = t_hat * 100)
   
@@ -277,7 +286,7 @@ end_year <- 2014
   lplot_env_end
 }
 
-# Plot Endogeneous Firm Entry and Wages
+# Plot Endogeneous Firm Entry and Wages - 'Landscape' 11.00 - 7.00
 {
   dta_endog_lplot <- dta_MATLAB_l66_81 %>%
     group_by(year) %>%
@@ -313,8 +322,17 @@ end_year <- 2014
   plot_FirmEntry
   
   # Plot in 2x1 - Export as Landscape as 11.00 - 7.00
-  combined_Endo_lplot <- plot_Wages + plot_FirmEntry + 
-  plot_layout(guides = "collect") & 
+  label_plots <- map(c("Wage", "Firm Entry"), 
+                     ~ ggplot() +
+                       theme_void() +
+                       theme(plot.margin = margin(0, 0)) +
+                       annotate("text", x = 0.5, y = 0.5, label = .x,
+                                fontface = "bold", hjust = 0.5))
+  
+  
+  combined_Endo_lplot <- (Reduce('+', label_plots) + plot_layout(ncol = 2)) /
+   ( plot_Wages + plot_FirmEntry) +
+    plot_layout(guides = 'collect', axis_titles = "collect", heights = c(1, 10)) &
   theme(legend.position = "bottom",
        legend.title = element_blank())
   combined_Endo_lplot

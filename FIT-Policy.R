@@ -40,7 +40,9 @@ this Script is to
     select(!c("Elect_Hydro", "Elect_Geothermal", "Elect_Wind","Elect_SolarThermal",
               "Elect_Solar", "Elect_Marine", "Elect_Biomass", "Elect_Waste")) %>%
     mutate(across(starts_with('ShareElect'), ~.x*UseElectricityShare, .names="Tot{.col}"), # multiply Use Share with Fuel Share
-           across(starts_with('TotShareElect'), ~.x*Elect_Total, .names="Exp{.col}")) %>% # Electricity Exposure: multiply exposure in shares with Electricity Production
+           across(starts_with('TotShareElect'), ~.x, .names="Exp{.col}")) %>% # WITHTOUT Multiplication of Total Electricity
+                  #~.x*Elect_Total, .names="Exp{.col}")) %>% # Electricity Exposure: multiply exposure in shares with Electricity Production
+    
     rename_with(~gsub("ExpTotShareElect_", "Exposure_", .x), starts_with("ExpTotShareElect_")) %>%
     rename_with(~gsub("^FIT(.+)$", "FIT_\\1", .x), starts_with("FIT"))
   

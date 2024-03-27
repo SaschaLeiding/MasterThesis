@@ -29,7 +29,7 @@ Attention: Variable 'ghg' must be the same in all Scripts
 
 # Load Data
 {
-  dta_analysis <- readRDS("./Data/dta_analysis_elect.rds")
+  dta_analysis <- readRDS("./Data/dta_analysis.rds")
 }
 
 # Define variables for flexibility in Code
