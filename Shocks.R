@@ -262,13 +262,17 @@ end_year <- 2014
   
   wwM_hat <- rbind(w_hat, M_hat) %>%
     ungroup()
+  mywwM_hat <- wwM_hat %>%
+    mutate(across(.cols = 2:ncol(wwM_hat), .fns = ~ 1))
   
-  dta_base <- dta_MATLAB_l66_81 %>% filter(year == base_year)
+  dta_base <- dta_MATLAB_l66_81 %>%
+    filter(year == base_year) 
 }
 
 # Apply algorithm to "nleqslv"
 {
-  p4 <- function() {
+  p4 <- function(x) {
+    n <- (base_year-1) + n
     # Define datasets as 1 to calculate shocks
     NXd_hat <- dta_MATLAB_l66_81 %>%
       filter(year == n) %>% select(NACE_Name, year) %>%
@@ -320,7 +324,7 @@ end_year <- 2014
         filter(year == n) %>%
         select(NACE_Name, year, starts_with("shocks.NXAds_hat_")) %>%
         rename(NXAds_hat_DNK = shocks.NXAds_hat_DNK,
-               NNXAds_hat_ROW = shocks.NXAds_hat_ROW)
+               NXAds_hat_ROW = shocks.NXAds_hat_ROW)
     }
     if (loop_shock == 6){
       Gamma_hat <-  dta_MATLAB_l66_81 %>%
@@ -343,7 +347,7 @@ end_year <- 2014
         filter(year == n) %>%
         select(NACE_Name, year, starts_with("shocks.NXAds_hat_"))%>%
         rename(NXAds_hat_DNK = shocks.NXAds_hat_DNK,
-               NNXAds_hat_ROW = shocks.NXAds_hat_ROW)
+               NXAds_hat_ROW = shocks.NXAds_hat_ROW)
     }
     
     ww <- (wwM_hat %>% select(-NACE_Name, -country))[1:(N-1),]# either 1 or the whole w_hat
@@ -407,7 +411,7 @@ end_year <- 2014
     
     # diff 1 - line 28
     {
-      diff1 <- ham %>%
+      dta_diff1 <- ham %>%
         left_join(NXd_hat, join_by(NACE_Name == NACE_Name, year == year)) %>%
         left_join(beta_hat, join_by(NACE_Name == NACE_Name, year == year)) %>%
         left_join(M_oNNJY, join_by(NACE_Name == NACE_Name, year == year)) %>%
@@ -440,18 +444,82 @@ end_year <- 2014
                diff1_ROW = w_hat_ROW - X_ROW) %>%
         select(NACE_Name, year, diff1_DNK, diff1_ROW)
     }
+    
+    # diff 2
+    {
+      dta_diff2 <- dta_MATLAB_l66_81 %>%
+        ungroup () %>%
+        filter(year == n) %>%
+        select(NACE_Name, year, sigma, theta, alpha) %>%
+        mutate(pwrA = (sigma-1)*(1+theta)/(sigma*theta),
+               pwrB = (theta-(sigma-1)*(1-alpha))/(theta*sigma),
+               pwrC = (sigma-1)*(theta-alpha+1) / (sigma*theta)) %>%
+        left_join(dta_base %>%
+                    select(NACE_Name, NXd_ROW, NXd_DNK, NXAds_ROW, NXAds_DNK,
+                           Rds_ROW, Rds_DNK,
+                           beta_DNK, beta_ROW) %>%
+                    rename(base_NXd_ROW = NXd_ROW,
+                           base_NXd_DNK = NXd_DNK,
+                           base_NXAds_ROW = NXAds_ROW,
+                           base_NXAds_DNK = NXAds_DNK,
+                           base_Rds_ROW = Rds_ROW,
+                           base_Rds_DNK = Rds_DNK,
+                           base_beta_DNK = beta_DNK,
+                           base_beta_ROW = beta_ROW),
+                  join_by(NACE_Name == NACE_Name)) %>%
+        left_join(NXd_hat, join_by(NACE_Name == NACE_Name, year == year)) %>%
+        left_join(NXAds_hat, join_by(NACE_Name == NACE_Name, year == year)) %>%
+        left_join(w_hat_long, join_by(year == year)) %>%
+        left_join(beta_hat, join_by(NACE_Name == NACE_Name, year == year)) %>%
+        left_join(M_oNNJY, join_by(NACE_Name == NACE_Name, year == year)) %>%
+        mutate(eta_DNK = sum(-(pwrB-1)*base_beta_DNK*base_NXd_DNK)-base_NXAds_DNK,
+               eta_ROW = sum(-(pwrB-1)*base_beta_ROW*base_NXd_ROW)-base_NXAds_ROW,
+               eta_p_DNK = (1/w_hat_DNK) *
+                 sum(-(pwrB-1)*beta_hat_DNK*base_beta_DNK*(NXd_hat_DNK*base_NXd_DNK)) - 
+                 (1/w_hat_DNK) * base_NXAds_DNK*NXAds_hat_DNK,
+               eta_p_ROW = (1/w_hat_ROW) *
+                 sum(-(pwrB-1)*beta_hat_ROW*base_beta_ROW*(NXd_hat_ROW*base_NXd_ROW)) - 
+                 (1/w_hat_ROW) * base_NXAds_ROW*NXAds_hat_ROW,
+               psi_DNK = (1-sum(pwrB*base_beta_DNK)) / (1-sum(pwrB*base_beta_DNK * beta_hat_DNK)),
+               psi_ROW = (1-sum(pwrB*base_beta_ROW)) / (1-sum(pwrB*base_beta_ROW * beta_hat_ROW)),
+               diff2_DNK = 1-psi_DNK * 
+                 (sum(M_hat_DNK*base_Rds_DNK*pwrC)+eta_p_DNK) /
+                 sum(base_Rds_DNK*pwrC)+eta_DNK,
+               diff2_ROW = 1-psi_ROW * 
+                 (sum(M_hat_ROW*base_Rds_ROW*pwrC)+eta_p_ROW) /
+                 sum(base_Rds_ROW*pwrC)+eta_ROW) %>%
+        select(NACE_Name, year, diff2_DNK, diff2_ROW)
+    }
+    q <- as.matrix(rbind((dta_diff2 %>%
+                 select(NACE_Name, year, diff2_DNK) %>%
+                 pivot_wider(names_from = year, values_from = diff2_DNK) %>%
+                 mutate(NACE_Name = 'w_hat', country = 'DNK')%>%
+                 ungroup() %>%
+                  distinct()),
+               (dta_diff1 %>%
+                  pivot_longer(cols = c(diff1_DNK, diff1_ROW), names_to = "country", values_to = "diff1") %>%
+                  mutate(country = ifelse(country == "diff1_DNK", "DNK", "ROW")) %>% 
+                  arrange(NACE_Name, year, desc(country)) %>%
+                  pivot_wider(names_from = year, values_from = diff1)%>%
+                  ungroup())) %>%
+      select(-NACE_Name, -country))
+    return(q)
+  }
+  
 }
 
 {
   Y <- length(unique(dta_MATLAB_l66_81$year))
   N <- 2
-  theta <- unique(dta_MATLAB_l66_81$theta)
+  initial_guess <- as.matrix(wwM_hat[,2])
+  loop_shock <- 3
   for (n in 1:Y) {
-    for(loop_shock in 1:5){
-      nleqslv(x=c(0.75, 1.25), # numeric vector with an initial guess of the root of the function # Shapiro choose 0.75 until 1.25
-              fn=p4, #A function of x returning a vector of function values with the same length as the  vector x.
-              global = 'pwldog')
-    }
+    #for(loop_shock in 1:5){
+      result <- nleqslv(x = initial_guess, # numeric vector with an initial guess of the root of the function # Shapiro choose 0.75 until 1.25
+                        fn = p4, #A function of x returning a vector of function values with the same length as the  vector x.
+                        global = 'pwldog')
+      mywwM_hat[,n+1] <- result$x
+    #}
   }
 }
 
