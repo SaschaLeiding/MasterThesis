@@ -271,80 +271,80 @@ end_year <- 2014
 
 # Apply algorithm to "nleqslv"
 {
-  p4 <- function(x) {
-    n <- (base_year-1) + n
+  p4 <- function(wwM_hat) {
+    anno <- (base_year-1) + n
     # Define datasets as 1 to calculate shocks
     NXd_hat <- dta_MATLAB_l66_81 %>%
-      filter(year == n) %>% select(NACE_Name, year) %>%
+      filter(year == anno) %>% select(NACE_Name, year) %>%
       mutate(NXd_hat_DNK = 1, NXd_hat_ROW = 1)
     NXAds_hat <- dta_MATLAB_l66_81 %>%
-      filter(year == n) %>% select(NACE_Name, year) %>%
+      filter(year == anno) %>% select(NACE_Name, year) %>%
       mutate(NXAds_hat_DNK = 1, NXAds_hat_ROW = 1)
     
     ## HOW TO BE ADJUSTED???
     Gamma_hat <- dta_MATLAB_l66_81 %>%
-      filter(year == n) %>% select(NACE_Name, year) %>%
+      filter(year == anno) %>% select(NACE_Name, year) %>%
       mutate(ones = 1)
     
     beta_hat <- dta_MATLAB_l66_81 %>%
-      filter(year == n) %>% select(NACE_Name, year) %>%
+      filter(year == anno) %>% select(NACE_Name, year) %>%
       mutate(beta_hat_DNK = 1, beta_hat_ROW = 1)
     
     # Change datasets depending on what shock to calculate
     if (loop_shock == 1){
       Gamma_hat <-  dta_MATLAB_l66_81 %>%
-        filter(year == n) %>%
+        filter(year == anno) %>%
         select(NACE_Name, year, starts_with('shocks.Gamma_hat_foreign'))
     }
     if (loop_shock == 2){
       Gamma_hat <-  dta_MATLAB_l66_81 %>%
-        filter(year == n) %>%
+        filter(year == anno) %>%
         select(NACE_Name, year, starts_with('shocks.Gamma_hat_domestic'))
     }
     if (loop_shock == 3){
       Gamma_hat <-  dta_MATLAB_l66_81 %>%
-        filter(year == n) %>%
+        filter(year == anno) %>%
         select(NACE_Name, year, starts_with("shocks.Gamma_hat_t"))
     }
     if (loop_shock == 4){
       beta_hat <-  dta_MATLAB_l66_81 %>%
-        filter(year == n) %>%
+        filter(year == anno) %>%
         select(NACE_Name, year, starts_with("shocks.beta_hat_")) %>%
         rename(beta_hat_DNK = shocks.beta_hat_DNK,
                beta_hat_ROW = shocks.beta_hat_ROW)
     }
     if (loop_shock == 5){
       NXd_hat <-  dta_MATLAB_l66_81 %>%
-        filter(year == n) %>%
+        filter(year == anno) %>%
         select(NACE_Name, year, starts_with("shocks.NXd_hat_")) %>%
         rename(NXd_hat_DNK = shocks.NXd_hat_DNK,
                NXd_hat_ROW = shocks.NXd_hat_ROW)
       
       NXAds_hat <-  dta_MATLAB_l66_81 %>%
-        filter(year == n) %>%
+        filter(year == anno) %>%
         select(NACE_Name, year, starts_with("shocks.NXAds_hat_")) %>%
         rename(NXAds_hat_DNK = shocks.NXAds_hat_DNK,
                NXAds_hat_ROW = shocks.NXAds_hat_ROW)
     }
     if (loop_shock == 6){
       Gamma_hat <-  dta_MATLAB_l66_81 %>%
-        filter(year == n) %>%
+        filter(year == anno) %>%
         select(NACE_Name, year, starts_with('shocks.Gamma_hat_star'))
       
       beta_hat <-  dta_MATLAB_l66_81 %>%
-        filter(year == n) %>%
+        filter(year == anno) %>%
         select(NACE_Name, year, starts_with("shocks.beta_hat_")) %>%
         rename(beta_hat_DNK = shocks.beta_hat_DNK,
                beta_hat_ROW = shocks.beta_hat_ROW)
       
       NXd_hat <-  dta_MATLAB_l66_81 %>%
-        filter(year == n) %>%
+        filter(year == anno) %>%
         select(NACE_Name, year, starts_with("shocks.NXd_hat_"))%>%
         rename(NXd_hat_DNK = shocks.NXd_hat_DNK,
                NXd_hat_ROW = shocks.NXd_hat_ROW)
       
       NXAds_hat <-  dta_MATLAB_l66_81 %>%
-        filter(year == n) %>%
+        filter(year == anno) %>%
         select(NACE_Name, year, starts_with("shocks.NXAds_hat_"))%>%
         rename(NXAds_hat_DNK = shocks.NXAds_hat_DNK,
                NXAds_hat_ROW = shocks.NXAds_hat_ROW)
@@ -449,7 +449,7 @@ end_year <- 2014
     {
       dta_diff2 <- dta_MATLAB_l66_81 %>%
         ungroup () %>%
-        filter(year == n) %>%
+        filter(year == anno) %>%
         select(NACE_Name, year, sigma, theta, alpha) %>%
         mutate(pwrA = (sigma-1)*(1+theta)/(sigma*theta),
                pwrB = (theta-(sigma-1)*(1-alpha))/(theta*sigma),
@@ -515,9 +515,12 @@ end_year <- 2014
   loop_shock <- 3
   for (n in 1:Y) {
     #for(loop_shock in 1:5){
+      initial_guess <- as.matrix(wwM_hat[,(n+1)])
       result <- nleqslv(x = initial_guess, # numeric vector with an initial guess of the root of the function # Shapiro choose 0.75 until 1.25
                         fn = p4, #A function of x returning a vector of function values with the same length as the  vector x.
-                        global = 'pwldog')
+                        global = 'pwldog',
+                        control = list(xtol=10^-14,
+                                       ftol=10^-14))
       mywwM_hat[,n+1] <- result$x
     #}
   }
