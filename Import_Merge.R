@@ -1456,6 +1456,29 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
     left_join(WIOD_final, join_by(year == year, NACE_Name == WIOD_NACE))
 }
 
+#install.packages("rmatio")
+#library(rmatio)
+dta_analysis <- readRDS("./Data/dta_analysis.rds")
+
+{
+#  options(scipen = 999)
+#  dta_MAT <- dta_analysis %>%
+ # select(year, NACE_Name, NACE_Code, ROWROW, DomImp, EXP, DomDom) %>%
+#  filter(!is.na(ROWROW) & NACE_Name != 'Total Manufacturing') %>%
+#  group_by(year) %>%
+#  mutate(year_id = cur_group_id()) %>%
+ #   group_by(year_id, NACE_Code) %>%
+  #  arrange(year_id, NACE_Code) %>%
+  #  ungroup() %>%
+  #  mutate(vshipDNK  = DomDom+EXP,
+  #         vshipROW = ROWROW + DomImp) %>%
+  #  select(year_id, NACE_Code, CO2ElectricityHeat)
+  
+  
+}
+
+
+
 
 # Save the Data
 {
