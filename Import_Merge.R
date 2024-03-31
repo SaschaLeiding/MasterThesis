@@ -1422,7 +1422,7 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
   }
 }
 
-# Combine NACE, ISIC data, FITPPA and Electricity/Heat Production by fueltype
+# Combine NACE data, FITPPA and Electricity/Heat Production by fueltype
 # Transform FITPPA from kWh/USD to kWh/DKK
 {
   dta_analysis <- dta_NACE %>%

@@ -29,13 +29,13 @@ Attention: Variable 'ghg' must be the same in all Scripts
 
 # Load Data
 {
-  dta_analysis <- readRDS("./Data/dta_analysis.rds")
+  dta_analysis <- readRDS("./Data/dta_analysis_elect.rds")
 }
 
 # Define variables for flexibility in Code
-ghg <- 'CO2Total' #'CO2ElectricityHeat' # Greenhouse gas for the analysis to allow flexibility in choice
+ghg <- 'CO2ElectricityHeat' # 'CO2Total' # Greenhouse gas for the analysis to allow flexibility in choice
 costs <- 'realexpend' # Define column used as Costs for calculations
-energycost <- 'realcostEnergy' # 'realcostEnergyElectricityHeat'
+energycost <- 'realcostEnergyElectricityHeat' # 'realcostEnergy'
 alpha <- 0.011 # mean Pollution elasticity
 base_year <- 2003 # Base year for parameter
 end_year <- 2014 # End year to define time sequence under observation
