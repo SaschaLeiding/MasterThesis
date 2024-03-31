@@ -58,18 +58,6 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
   ppi_mapp117 <- read_xlsx("./Data/Mapping_PPI_117grouping.xlsx", range = "B3:G122")
   ppi_mapp69 <- read_xlsx("./Data/Mapping_PPI_69grouping.xlsx", range = "B2:C73")
   
-  # Loading International data
-  # Load IEA-Emission Data in million tonnes CO2
-  IEA_emissions <- read_xlsx("./Data/IEA_Emissions.xlsx", range = "A4:AQ933")
-  IEA_emissions <- IEA_emissions[-1,]
-  
-  # Load INDSTAT Data in USD
-  INDSTAT_1 <- read_xlsx("./Data/INDSTAT_WorldManuf_ISIC.xlsx", sheet = "EmplEstabl", range = "A1:M97980")
-  INDSTAT_2 <- read_xlsx("./Data/INDSTAT_WorldManuf_ISIC.xlsx", sheet = "OutpGFI", range = "A1:M83882")
-  INDSTAT_3 <- read_xlsx("./Data/INDSTAT_WorldManuf_ISIC.xlsx", sheet = "WagesVA", range = "A1:M99504")
-  # Load more detailed data
-  INDSTAT_detail <- read_xlsx("./Data/INDSTAT_Output_detail.xlsx", range = "A1:M88932")
-  
   # Load Eurostat Trade data in EUR
   EUROSTAT_Import <- read_xlsx("./Data/EUROSTAT_Trade_Import.xlsx", sheet = "Sheet 1", range = "A10:E730")
   EUROSTAT_Export <- read_xlsx("./Data/EUROSTAT_Trade_Export.xlsx", sheet = "Sheet 1", range = "A10:E730")
@@ -92,8 +80,6 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
                                                range = "A9:V829", sheet = 'Sheet 1')
   EUROSTAT_Production_Heat <- read_xlsx("./Data/EUROSTAT_Production_Heat.xlsx",
                                                range = "A9:V829", sheet = 'Sheet 1')
-
-  ember <- read.csv("./Data/EMBER_ElectricityData.csv")
 }
 
 # Define variables for code flexibility
@@ -922,10 +908,8 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
     left_join(WIOD_final, join_by(year == year, NACE_Name == WIOD_NACE))
 }
 
-#install.packages("rmatio")
-#library(rmatio)
-dta_analysis <- readRDS("./Data/dta_analysis.rds")
 
+# Create Data for Matlab
 {
 #  options(scipen = 999)
 #  dta_MAT <- dta_analysis %>%
