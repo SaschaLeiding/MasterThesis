@@ -18,12 +18,48 @@ this Script is to
 # Load Data
 {
   dta_policy <- readRDS("./Data/dta_policy.rds")
-  #dta_internat <- readRDS("./Data/dta_internat.rds")
+  ShocksbyIndustry <- read_xls("./Data/ShocksbyIndustry.xls", range = "A1:BH11", col_names = FALSE)
+  ShocksTotal <- read_xls("./Data/ShocksTotal.xls", range = "A1:E12", col_names = FALSE)
+  wwM_hat <- read_xls("./Data/wwM_hat.xls", range = "A1:L23", col_names = FALSE)
+  dta_t_hat <- read_xls("./Data/t_hat.xls", range = "A1:L11", col_names = FALSE)
+}
+
+# Transform MATLAB data
+{
+  colnames(ShocksTotal)[1] <- 'ForeignComp'
+  colnames(ShocksTotal)[2] <- 'DNKForeignComp'
+  colnames(ShocksTotal)[3] <- 'ExpenditureShares'
+  colnames(ShocksTotal)[4] <- 'EnvironmentalRegulation'
+  w_hat_DNK <- wwM_hat[1,]
+  M_hat <- wwM_hat[-1,]
+  
+  # Merge data with dta_policy
+  {
+    dta_MATLAB <- dta_policy %>%
+      left_join((ShocksTotal %>%
+                   mutate(year = as.character(2002 + row_number()),
+                          NACE_Name = 'Total Manufacturing')),
+                join_by(year == year, NACE_Name == NACE_Name)) %>%
+      left_join((dta_t_hat %>%
+                   rename_with(~ as.character(2002 + seq_along(.)), .cols = everything()) %>%
+                   mutate(NACE_Code = row_number()) %>%
+                   pivot_longer(cols = starts_with("20"), values_to = 't_hat_MATLAB', names_to = 'year')),
+                join_by(NACE_Code == NACE_Code, year == year)) %>%
+      left_join((M_hat %>%
+                   rename_with(~ as.character(2002 + seq_along(.)), .cols = everything()) %>%
+                   mutate(NACE_Code = row_number()) %>%
+                   pivot_longer(cols = starts_with("20"), values_to = 'M_hat_MATLAB', names_to = 'year')),
+                join_by(NACE_Code == NACE_Code, year == year)) %>%
+      left_join((w_hat_DNK %>%
+                   rename_with(~ as.character(2002 + seq_along(.)), .cols = everything()) %>%
+                   pivot_longer(cols = starts_with("20"), values_to = 'M_hat_MATLAB', names_to = 'year')),
+                join_by(year == year))
+  }
 }
 
 # Define variables for flexibility in Code
 {
-  y_var <- 't_hat'
+  y_var <- 'EnvironmentalRegulation'
   base_year <- '2003'
   end_year <- '2014'
 }
@@ -34,7 +70,7 @@ this Script is to
 # Calculate FIT-Exposure
 # Sum by fuel type of change in Electricity Generation x FIT in given year
 {
-  dta_exposure <- dta_policy %>%
+  dta_exposure <- dta_MATLAB %>%
     filter(year >= base_year & year <= end_year) %>%
     mutate(across(starts_with('Elect_'), ~.x/Elect_Total, .names="Share{.col}")) %>% # Calc. Electricity Share of each fuel
     select(!c("Elect_Hydro", "Elect_Geothermal", "Elect_Wind","Elect_SolarThermal",
@@ -84,11 +120,11 @@ testtt <- dta_totalexposure %>%
 # Run Fixed_Effects Estimation
 {
   # Pooled OLS
-  model_simple <- lm(t_hat ~ norm_Exposure  + norm_ElectPrice , data = testtt)
+  model_simple <- lm(EnvironmentalRegulation ~ norm_Exposure  + norm_ElectPrice , data = testtt)
   summary(model_simple)
   
   # Fixed Effects with only FIT Exposure and year FE
-  model_fe_simple <- felm(t_hat ~ norm_Exposure | # Model Variable
+  model_fe_simple <- felm(EnvironmentalRegulation ~ norm_Exposure | # Model Variable
                         year | # Fixed Effects
                         0 | # Instrument
                         NACE_Name, # Variables for Cluster-robust Standard errors
@@ -96,7 +132,7 @@ testtt <- dta_totalexposure %>%
   summary(model_fe_simple)
   
   # Fixed Effects with FIT Exposure & Electricity and year FE
-  model_fe_full <- felm(t_hat ~ norm_Exposure + norm_ElectPrice | # Model Variable
+  model_fe_full <- felm(EnvironmentalRegulation ~ norm_Exposure + norm_ElectPrice | # Model Variable
                      year | # Fixed Effects
                      0 | # Instrument
                      NACE_Name, # Variables for Cluster-robust Standard errors
@@ -104,7 +140,7 @@ testtt <- dta_totalexposure %>%
   summary(model_fe_full)
   
   # Fixed Effects with FIT Exposure & Electricity and year and sector FE
-  model_doublefe_full <- felm(t_hat ~ norm_Exposure + norm_ElectPrice | # Model Variable
+  model_doublefe_full <- felm(EnvironmentalRegulation ~ norm_Exposure + norm_ElectPrice | # Model Variable
                           year + NACE_Name| # Fixed Effects
                           0 | # Instrument
                           NACE_Name, # Variables for Cluster-robust Standard errors

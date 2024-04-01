@@ -33,9 +33,9 @@ Attention: Variable 'ghg' must be the same in all Scripts
 }
 
 # Define variables for flexibility in Code
-ghg <- 'CO2ElectricityHeat' # 'CO2Total' # Greenhouse gas for the analysis to allow flexibility in choice
+ghg <- 'CO2ElectricityHeat' # 'CO2Total' #Greenhouse gas for the analysis to allow flexibility in choice
 costs <- 'realexpend' # Define column used as Costs for calculations
-energycost <- 'realcostEnergyElectricityHeat' # 'realcostEnergy'
+energycost <- 'realcostEnergyElectricityHeat'# 'realcostEnergy'
 alpha <- 0.011 # mean Pollution elasticity
 base_year <- 2003 # Base year for parameter
 end_year <- 2014 # End year to define time sequence under observation
