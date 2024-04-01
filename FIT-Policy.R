@@ -13,6 +13,7 @@ this Script is to
   library(xtable)
   library(lfe)
   library(stargazer)
+  library(readxl)
 }
 
 # Load Data
@@ -22,15 +23,25 @@ this Script is to
   ShocksTotal <- read_xls("./Data/ShocksTotal.xls", range = "A1:E12", col_names = FALSE)
   wwM_hat <- read_xls("./Data/wwM_hat.xls", range = "A1:L23", col_names = FALSE)
   dta_t_hat <- read_xls("./Data/t_hat.xls", range = "A1:L11", col_names = FALSE)
+  w_hat <- read_xls("./Data/w_hat.xls", range = "A1:L2", col_names = FALSE)
+  
+}
+
+# Define variables for flexibility in Code
+{
+  ghg <- 'CO2ElectricityHeat'
+  base_year <- 2003 # Base year for parameter
+  end_year <- 2014
+  y_var <- 't_hat_MATLAB'
 }
 
 # Transform MATLAB data
 {
   colnames(ShocksTotal)[1] <- 'ForeignComp'
-  colnames(ShocksTotal)[2] <- 'DNKForeignComp'
+  colnames(ShocksTotal)[2] <- 'DNKComp'
   colnames(ShocksTotal)[3] <- 'ExpenditureShares'
   colnames(ShocksTotal)[4] <- 'EnvironmentalRegulation'
-  w_hat_DNK <- wwM_hat[1,]
+  #w_hat_DNK <- wwM_hat[1,]
   M_hat <- wwM_hat[-1,]
   
   # Merge data with dta_policy
@@ -50,18 +61,78 @@ this Script is to
                    mutate(NACE_Code = row_number()) %>%
                    pivot_longer(cols = starts_with("20"), values_to = 'M_hat_MATLAB', names_to = 'year')),
                 join_by(NACE_Code == NACE_Code, year == year)) %>%
-      left_join((w_hat_DNK %>%
+      left_join((w_hat %>%
                    rename_with(~ as.character(2002 + seq_along(.)), .cols = everything()) %>%
-                   pivot_longer(cols = starts_with("20"), values_to = 'M_hat_MATLAB', names_to = 'year')),
-                join_by(year == year))
+                   mutate(country = ifelse(row_number() %% 2 == 0, "DNK", "ROW")) %>%
+                   pivot_longer(cols = starts_with("20"), values_to = 'w_hat', names_to = 'year') %>%
+                   pivot_wider(names_from = 'country', values_from = 'w_hat', names_prefix = 'w_hat')),
+                join_by(year == year)) %>%
+      
+      left_join((dta_t_hat %>%
+                  rename_with(~ as.character(2002 + seq_along(.)), .cols = everything()) %>%
+                  mutate(NACE_Code = row_number()) %>%
+                  pivot_longer(cols = starts_with("20"), values_to = 't_hat_MATLAB', names_to = 'year') %>%
+                  group_by(year) %>%
+                  summarise(t_hat_MATLAB = mean(t_hat_MATLAB)) %>%
+                  mutate(NACE_Name =  'Total Manufacturing')),
+                join_by(NACE_Name == NACE_Name, year == year)) %>%
+      unite('t_hat_MATLAB', c("t_hat_MATLAB.x", "t_hat_MATLAB.y"), na.rm = TRUE)
   }
 }
 
-# Define variables for flexibility in Code
+# Plot with Environmental regulation tax selected Industries - 'Landscape' 8.00 x 6.00
 {
-  y_var <- 'EnvironmentalRegulation'
-  base_year <- '2003'
-  end_year <- '2014'
+  dta_env_plot_end <- dta_MATLAB %>%
+    filter(NACE_Name %in% c('Total Manufacturing',"Chemicals and pharmaceuticals",
+                            "Food, beverages, tobacco", "Metal products, electronics, machinery") & 
+             year >= base_year & year <= end_year) %>%
+    select(NACE_Name, year, t_hat_MATLAB) %>%
+    #full_join(dta_env_Manuf) %>%
+    group_by(year) %>%
+    mutate(year = as.numeric(year),
+           t_hat = as.numeric(t_hat_MATLAB) * 100)
+  
+  year_breaks <- seq(from=base_year, to=end_year, by = 2)
+  lplot_env_end <- ggplot(data = dta_env_plot_end,
+                          aes(x = year, y = t_hat, color = NACE_Name, group = NACE_Name)) +
+    geom_line() +
+    labs(#title = "Development of various Greenhouse Gas Emissions",
+      x = "Year",
+      y = paste0("Base ", base_year, " = 100"),
+      color = NULL) +
+    scale_x_continuous(breaks = year_breaks) +
+    theme_classic() +
+    theme(legend.position = c(.20, .85))
+  lplot_env_end
+}
+
+# Plot Emission with Shocks - 'Landscape' 8.00 x 6.00
+{
+  dta_lplot_shocks <- dta_MATLAB %>%
+    filter(NACE_Name == 'Total Manufacturing') %>%
+    mutate(normalized_ghg = (!!sym(ghg) / (!!sym(ghg))[year == base_year]) * 100) %>%
+    select(year, normalized_ghg, EnvironmentalRegulation, ExpenditureShares ) %>%#,
+          # ForeignComp, DNKComp)
+      pivot_longer(cols = -1, names_to = 'Shock', values_to = 'Values')
+  
+  lplot_shocks <- ggplot(data = dta_lplot_shocks,
+                         aes(x = year, y = Values, color = Shock, group = Shock)) +
+    geom_line() +
+    labs(#title = "Development of various Greenhouse Gas Emissions",
+      x = "Year",
+      y = paste0("Base ", base_year, " = 100"),
+      color = NULL) +
+    scale_colour_manual(values = c("#FF0000",  "#669900", "#330099"),
+                        labels = c("Environmental Regulation",
+                                   "Expenditure Shares",
+                                   "CO² Electricity")) +
+    theme_classic() +
+    theme(legend.position = c(.15, .15),
+          #panel.background = element_rect(fill = "#FFFFFF"),
+          panel.grid.major.y = element_line(color = "#8B8878")) +
+    geom_vline(xintercept = '2009', color = "black", linetype = "dotted")
+  
+  lplot_shocks
 }
 
 # Plot Fit-Exposure - fit-tariff x energy use per industry
@@ -111,7 +182,7 @@ testtt <- dta_totalexposure %>%
   select(year, NACE_Name, !!sym(y_var), TotalExposure, UseElectricity,
          electBaseprice, electVATfreeprice, electFinalprice) %>% #electVATfreeprice #electFinalprice
   group_by(NACE_Name) %>%
-  mutate(TotalExposure = (TotalExposure+0.01)/1000000,
+  mutate(TotalExposure = (TotalExposure+0.01),#/1000000,
          CostsElectBaseprice = electBaseprice * UseElectricity,
          norm_Exposure = (TotalExposure/TotalExposure[year == base_year])*100,
          norm_ElectPrice = (CostsElectBaseprice/CostsElectBaseprice[year == base_year])*100) %>%
@@ -120,11 +191,11 @@ testtt <- dta_totalexposure %>%
 # Run Fixed_Effects Estimation
 {
   # Pooled OLS
-  model_simple <- lm(EnvironmentalRegulation ~ norm_Exposure  + norm_ElectPrice , data = testtt)
+  model_simple <- lm(t_hat_MATLAB ~ norm_Exposure  + norm_ElectPrice , data = testtt)
   summary(model_simple)
   
   # Fixed Effects with only FIT Exposure and year FE
-  model_fe_simple <- felm(EnvironmentalRegulation ~ norm_Exposure | # Model Variable
+  model_fe_simple <- felm(t_hat_MATLAB ~ norm_Exposure | # Model Variable
                         year | # Fixed Effects
                         0 | # Instrument
                         NACE_Name, # Variables for Cluster-robust Standard errors
@@ -132,7 +203,7 @@ testtt <- dta_totalexposure %>%
   summary(model_fe_simple)
   
   # Fixed Effects with FIT Exposure & Electricity and year FE
-  model_fe_full <- felm(EnvironmentalRegulation ~ norm_Exposure + norm_ElectPrice | # Model Variable
+  model_fe_full <- felm(t_hat_MATLAB ~ norm_Exposure + norm_ElectPrice | # Model Variable
                      year | # Fixed Effects
                      0 | # Instrument
                      NACE_Name, # Variables for Cluster-robust Standard errors
@@ -140,7 +211,7 @@ testtt <- dta_totalexposure %>%
   summary(model_fe_full)
   
   # Fixed Effects with FIT Exposure & Electricity and year and sector FE
-  model_doublefe_full <- felm(EnvironmentalRegulation ~ norm_Exposure + norm_ElectPrice | # Model Variable
+  model_doublefe_full <- felm(t_hat_MATLAB ~ norm_Exposure + norm_ElectPrice | # Model Variable
                           year + NACE_Name| # Fixed Effects
                           0 | # Instrument
                           NACE_Name, # Variables for Cluster-robust Standard errors

@@ -568,7 +568,7 @@ end_year <- 2014
     mutate(avgM_hat_DNK = mean(M_hat_DNK),
            avgM_hat_ROW = mean(M_hat_ROW)) %>%
     select(NACE_Name, year, w_hat_DNK, w_hat_ROW, avgM_hat_DNK, avgM_hat_ROW) %>%
-    filter(NACE_Name == "Basic Metals") %>% # arbitrarily chosen as all values are averages across sectors
+    filter(NACE_Name == "Che") %>% # arbitrarily chosen as all values are averages across sectors
     pivot_longer(cols = 3:ncol(.), names_to = "Variable", values_to = "Value" ) %>%
     mutate(country = ifelse(str_detect(Variable, "ROW$"), "ROW", "DNK"),
            Value = Value*100) %>%
