@@ -35,7 +35,7 @@ end_year <- 2014 # End year to define time sequence under observation
 # Decomposition
 {
   dta_decomp <- dta_analysis %>%
-    filter(classsystem == 'NACE') %>% # NACE=ZEW, ISIC=Shapiro
+    filter(classsystem == 'NACE') %>% 
     group_by(NACE_Name) %>% 
     arrange(year, .by_group = TRUE) %>%
     mutate(scale = (realoutput / realoutput[year == base_year]) * 100, 
