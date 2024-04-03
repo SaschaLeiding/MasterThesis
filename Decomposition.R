@@ -25,6 +25,7 @@ Print Plots as PDF in 'Landscape' 8.00 x 6.00
 # Load Data
 {
   dta_analysis <- readRDS("./Data/dta_analysis.rds")
+  #dta_analysis <- readRDS("./Data/dta_analysis_exCoke.rds")
 }
 
 # Define variables for flexibility in Code

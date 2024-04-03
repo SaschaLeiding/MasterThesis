@@ -864,6 +864,46 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
              vship = GO/GO[WIOD_NACE == 'Total Manufacturing']) %>%
       select(-GO, -OutputWorld,-DKKUSD)
     
+    # Create WIOD without Coke
+    {
+      WIOD_inter_exCoke <- rbind(WIOD, WIOD_total) %>%
+        left_join(WIOD_merge, join_by(Code == WIOD_codes)) %>%
+        group_by(year, WIOD_NACE) %>%
+        summarise(across(where(is.numeric), sum, na.rm = TRUE), .groups = 'drop') %>%
+        mutate(year = as.character(year)) %>%
+        
+        # ADD FX rates
+        left_join((OECDFX %>%
+                     filter(Location == "Denmark") %>%
+                     pivot_longer(cols = starts_with("20"),
+                                  names_to = 'year',
+                                  values_to = 'FXrateUSD') %>%
+                     mutate(FXrateUSD = as.numeric(FXrateUSD)/1000) %>%
+                     pivot_wider(names_from = Location,
+                                 values_from = FXrateUSD) %>%
+                     rename(DKKUSD = Denmark)),
+                  join_by(year == year)) %>%
+        mutate(across(where(is.numeric), ~.x*DKKUSD)) %>%
+        group_by(year) %>%
+        mutate(sumsector = EXP+DomDom+DomImp+ROWROW,
+               OutputWorld = OutputWorld[WIOD_NACE == 'Total Manufacturing'] -
+                 sumsector[WIOD_NACE == 'Coke, petroleum'],
+               across(3:7, ~.x/OutputWorld),
+               vship = GO/(GO[WIOD_NACE == 'Total Manufacturing']-
+                             GO[WIOD_NACE == 'Coke, petroleum'])) %>%
+        select(-GO, -OutputWorld,-DKKUSD, sumsector) %>%
+        filter(WIOD_NACE != 'Coke, petroleum' & WIOD_NACE != 'Total Manufacturing')
+      
+      WIOD_Total_exCoke <- WIOD_inter_exCoke %>%
+        group_by(year) %>%
+        summarise(across(where(is.numeric), sum, na.rm = TRUE), .groups = 'drop') %>%
+        mutate(WIOD_NACE = 'Total Manufacturing')
+      
+      WIOD_final_excoke <- rbind(WIOD_inter_exCoke, WIOD_Total_exCoke)
+    }
+    
+    
+    # Remove unnecessary data
     rm(WIOD_World_final)
     rm(WIOD_DNK_final)
     rm(WIOD)
@@ -871,6 +911,8 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
     rm(WIOD_codes)
     rm(WIOD_NACE)
     rm(WIOD_merge)
+    rm(WIOD_inter_exCoke)
+    rm(WIOD_Total_exCoke)
     
   }
 }
@@ -906,8 +948,17 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
     
     # Add WIOD data
     left_join(WIOD_final, join_by(year == year, NACE_Name == WIOD_NACE))
+  
+  # Create dta_analysis_exCoke
+  {
+    dta_analysis_exCoke <- dta_analysis %>%
+      filter(NACE_Name != 'Coke, petroleum') %>%
+      select(-EXP, -DomDom, -DomImp, -ROWROW, -vship) %>%
+      mutate(UseElectricityShare = UseElectricity/(sum(UseElectricity)/2)) %>%
+      # Add WIOD data
+      left_join(WIOD_final_excoke, join_by(year == year, NACE_Name == WIOD_NACE))
+  }
 }
-
 
 # Create Data for Matlab
 {
@@ -934,4 +985,6 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
 {
   saveRDS(dta_decomp, file = "./Data/dta_full.rds")
   saveRDS(dta_analysis, file = "./Data/dta_analysis_elect.rds")
+  saveRDS(dta_analysis_exCoke, file = "./Data/dta_analysis_exCoke.rds")
+  
 }

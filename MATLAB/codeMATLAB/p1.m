@@ -25,7 +25,6 @@ end;
     writematrix(Z_hat_o,'ActualEmission.xls')
     writematrix(Z_hat_o_cf,'ShocksTotal.xls')
     writematrix(Z_hat_cf,'ShocksbyIndustry.xls')
-    writematrix(Z_hat_cf,'ShocksbyIndustry.xls')
     writematrix(w_hat,'w_hat.xls')
     writematrix(M_hat,'M_hat.xls')
     writematrix(t_hat,'t_hat.xls')
