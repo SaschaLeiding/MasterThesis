@@ -703,27 +703,29 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
            UseElectricityShare = UseElectricity/(sum(UseElectricity)/2))
 }
 
-    
-    country_EUROSTAT <- c("Albania", "Argentina", "Australia", "Austria", "Belgium", 
-                          "Brazil", "Bulgaria", "Cameroon", "Canada", "Chile", 
-                          "China (People's Republic of)", "Colombia", "Costa Rica", 
-                          "Croatia", "Cyprus", "Czechia", "Denmark", "Estonia", 
-                          "Euro area (19 countries)", "European Union (27 countries, 2020)", 
-                          "Finland", "France", "Georgia", "Germany", "Greece", 
-                          "Hong Kong, China", "Hungary", "Iceland", "India", "Indonesia", 
-                          "Ireland", "Israel", "Italy", "Japan", "Korea", "Latvia", 
-                          "Lithuania", "Luxembourg", "Madagascar", "Malta", "Mexico", 
-                          "Morocco", "Netherlands", "New Zealand", "North Macedonia", 
-                          "Norway", "Poland", "Portugal", "Romania", "Russia", 
-                          "Saudi Arabia", "Senegal", "Serbia", "Singapore", "Slovak Republic", 
-                          "Slovenia", "South Africa", "Spain", "Sweden", "Switzerland", 
-                          "Türkiye", "United Kingdom", "United States", "Zambia")
+# EUROSTAT Country Name & Code
+{
+  country_EUROSTAT <- c("Albania", "Argentina", "Australia", "Austria", "Belgium",
+                        "Brazil", "Bulgaria", "Cameroon", "Canada", "Chile", 
+                        "China (People's Republic of)", "Colombia", "Costa Rica", 
+                        "Croatia", "Cyprus", "Czechia", "Denmark", "Estonia", 
+                        "Euro area (19 countries)", "European Union (27 countries, 2020)", 
+                        "Finland", "France", "Georgia", "Germany", "Greece", 
+                        "Hong Kong, China", "Hungary", "Iceland", "India", "Indonesia", 
+                        "Ireland", "Israel", "Italy", "Japan", "Korea", "Latvia", 
+                        "Lithuania", "Luxembourg", "Madagascar", "Malta", "Mexico", 
+                        "Morocco", "Netherlands", "New Zealand", "North Macedonia", 
+                        "Norway", "Poland", "Portugal", "Romania", "Russia", 
+                        "Saudi Arabia", "Senegal", "Serbia", "Singapore", "Slovak Republic", 
+                        "Slovenia", "South Africa", "Spain", "Sweden", "Switzerland", 
+                        "Türkiye", "United Kingdom", "United States", "Zambia")
     countrycode_EUROSTAT <- c(08, 032, 036, 040, 056, 076, 100, 120, 124, 152, 156, 170, 
                               188, 191, 196, 203, 208, 233, NA, NA, 246, 250, 268, 
                               276, 300, 344, 348, 352, 356, 360, 372, 376, 380, 392, 
                               410, 428, 440, 442, 450, 470, 484, 504, 528, 554, 807, 
                               578, 616, 620, 642, 643, 682, 686, 688, 702, 703, 705, 
                               710, 724, 752, 756, 792, 826, 840, 894)
+}
 
 # WIODs
 {
@@ -921,7 +923,6 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
 # Transform FITPPA from kWh/USD to kWh/DKK
 {
   dta_analysis <- dta_NACE %>%
-    #full_join(dta_ISIC) %>%
     left_join(dta_FITPPA %>%
                  full_join(dta_electricityheat,
                            join_by(country == country, year == year)) %>%
@@ -954,7 +955,8 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
     dta_analysis_exCoke <- dta_analysis %>%
       filter(NACE_Name != 'Coke, petroleum') %>%
       select(-EXP, -DomDom, -DomImp, -ROWROW, -vship) %>%
-      mutate(UseElectricityShare = UseElectricity/(sum(UseElectricity)/2)) %>%
+      mutate(UseElectricityShare = UseElectricity/(sum(UseElectricity)/2),
+             output_share = realoutput/(sum(realoutput)/2)) %>%
       # Add WIOD data
       left_join(WIOD_final_excoke, join_by(year == year, NACE_Name == WIOD_NACE))
   }
