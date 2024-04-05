@@ -24,12 +24,12 @@ Print Plots as PDF in 'Landscape' 8.00 x 6.00
 
 # Load Data
 {
-  dta_analysis <- readRDS("./Data/dta_analysis.rds")
-  #dta_analysis <- readRDS("./Data/dta_analysis_exCoke.rds")
+  #dta_analysis <- readRDS("./Data/dta_analysis.rds")
+  dta_analysis <- readRDS("./Data/dta_analysis_exCoke.rds")
 }
 
 # Define variables for flexibility in Code
-ghg <- 'CO2Total' # Greenhouse gas for the analysis to allow flexibility in choice
+ghg <- 'CO2ElectricityHeat' # Greenhouse gas for the analysis to allow flexibility in choice
 base_year <- 2003 # Base year for the normalizing the 3 effects
 end_year <- 2014 # End year to define time sequence under observation
 

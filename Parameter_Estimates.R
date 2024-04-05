@@ -384,7 +384,6 @@ end_year <- 2014 # End year to define time sequence under observation
     rename(ParetoShape = USParetoShape,
            ParetoSE = USParetoSE)
     
-  
   saveRDS(dta_parameter, file = "./Data/dta_parameter_exCoke.rds")
 }
 
