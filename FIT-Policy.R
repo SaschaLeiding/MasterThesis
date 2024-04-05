@@ -19,6 +19,7 @@ this Script is to
 # Load Data
 {
   dta_selct <- 'exCoke'
+  
   if(dta_selct == 'exCoke'){
     dta_policy <- readRDS("./Data/dta_parameter_exCoke.rds")
     ShocksbyIndustry <- read_xls("./Data/ShocksbyIndustry_exCoke.xls", range = "A1:BH10", col_names = FALSE)
@@ -58,7 +59,6 @@ this Script is to
   colnames(ShocksTotal)[3] <- 'EnvironmentalRegulation'
   colnames(ShocksTotal)[4] <- 'ExpenditureShares'
   
-  
   # Merge data with dta_policy
   {
     dta_MATLAB <- dta_policy %>%
@@ -74,7 +74,9 @@ this Script is to
       left_join((cbind(M_hat %>%
                    rename_with(~ as.character(2002 + seq_along(.)), .cols = everything()), Mhat_NACE_Code) %>%
                    rename(NACE_Code = Mhat_NACE_Code) %>%
-                   pivot_longer(cols = starts_with("20"), values_to = 'M_hat_MATLAB', names_to = 'year')),
+                   mutate(country = ifelse(row_number() %% 2 == 0, "DNK", "ROW")) %>%
+                   pivot_longer(cols = starts_with("20"), values_to = 'M_hat_MATLAB', names_to = 'year')%>%
+                   pivot_wider(names_from = 'country', values_from = 'M_hat_MATLAB', names_prefix = 'M_hat')),
                 join_by(NACE_Code == NACE_Code, year == year)) %>%
       left_join((w_hat %>%
                    rename_with(~ as.character(2002 + seq_along(.)), .cols = everything()) %>%
@@ -163,19 +165,24 @@ this Script is to
     mutate(across(starts_with('Elect_'), ~.x/Elect_Total, .names="Share{.col}")) %>% # Calc. Electricity Share of each fuel
     select(!c("Elect_Hydro", "Elect_Geothermal", "Elect_Wind","Elect_SolarThermal",
               "Elect_Solar", "Elect_Marine", "Elect_Biomass", "Elect_Waste")) %>%
+    
     mutate(across(starts_with('ShareElect'), ~.x*UseElectricityShare, .names="Tot{.col}"), # multiply Use Share with Fuel Share
-           across(starts_with('TotShareElect'), ~.x, .names="Exp{.col}")) %>% # WITHTOUT Multiplication of Total Electricity
+           across(starts_with('TotShareElect'), ~.x, .names="Exp{.col}"),
+           across(starts_with('TotShareElect'), ~.x*100, .names="100Exp{.col}")) %>% 
                   #~.x*Elect_Total, .names="Exp{.col}")) %>% # Electricity Exposure: multiply exposure in shares with Electricity Production
     
     rename_with(~gsub("ExpTotShareElect_", "Exposure_", .x), starts_with("ExpTotShareElect_")) %>%
+    rename_with(~gsub("100ExpTotShareElect_", "100Exposure_", .x), starts_with("100ExpTotShareElect_")) %>%
     rename_with(~gsub("^FIT(.+)$", "FIT_\\1", .x), starts_with("FIT"))
   
   # Identify the FIT columns and their matching Exposure columns
   fit_columns <- colnames(dta_exposure)[str_detect(colnames(dta_exposure), "^FIT_")]
   exposure_columns <- str_replace(fit_columns, "FIT_", "Exposure_")
+  exposure100_columns <- str_replace(fit_columns, "FIT_", "100Exposure_")
   
   # Generate new column names for the results
   new_column_names <- str_replace(fit_columns, "FIT_", "FITxExposure_")
+  new_column_names100 <- str_replace(fit_columns, "FIT_", "FITx100Exposure_")
   
   # FIT = DKK/kWh
   # Exposure = kWh
@@ -183,12 +190,14 @@ this Script is to
   # Multiply matching columns and add them to the dataframe
   for (i in seq_along(fit_columns)) {
     dta_exposure <- dta_exposure %>%
-      mutate(!!new_column_names[i] := .data[[fit_columns[i]]] * .data[[exposure_columns[i]]])
+      mutate(!!new_column_names[i] := .data[[fit_columns[i]]] * .data[[exposure_columns[i]]],
+             !!new_column_names100[i] := .data[[fit_columns[i]]] * .data[[exposure100_columns[i]]])
   }
   
   dta_totalexposure <- dta_exposure %>%
     rowwise() %>%
-    mutate(TotalExposure = sum(c_across(starts_with('FITxExposure_')), na.rm = TRUE)) %>%
+    mutate(TotalExposure = sum(c_across(starts_with('FITxExposure_')), na.rm = TRUE),
+           Total100Exposure = sum(c_across(starts_with('FITx100Exposure_')), na.rm = TRUE)) %>%
     ungroup()
 }
 
@@ -196,17 +205,21 @@ testtt <- dta_totalexposure %>%
   filter(!is.na(NACE_Name)) %>%
   filter(NACE_Name != 'Total Manufacturing') %>%
   #filter(year >= 2009) %>%
-  #filter(!(year %in% c(2008,2009))) %>%
   select(year, NACE_Name, !!sym(y_var), TotalExposure, UseElectricity,
          electBaseprice, electVATfreeprice, electFinalprice) %>% #electVATfreeprice #electFinalprice
   group_by(NACE_Name) %>%
-  mutate(TotalExposure = TotalExposure+0.001,#/1000000,
+  mutate(# Control Variable
          CostsElectBaseprice = electBaseprice * UseElectricity,
-         norm_Exposure = (TotalExposure/TotalExposure[year == base_year])*100,
-         norm_ElectPrice = (CostsElectBaseprice/CostsElectBaseprice[year == base_year])*100) %>%
+         norm_ElectPrice = (CostsElectBaseprice/CostsElectBaseprice[year == base_year])*100,
+         CostsElectBasepriceMW = CostsElectBaseprice*1000,
+         CostsElectBasepriceTW = CostsElectBaseprice*1000000000,
+        
+         # Independent Normalized
+         TotalExposure1 = TotalExposure+0.001,#/1000000,
+         norm_Exposure = (TotalExposure1/TotalExposure1[year == base_year])*100) %>%
   ungroup()
 
-# Run Fixed_Effects Estimation
+# Run Fixed_Effects Estimation with NORMALIZED exposure
 {
   # Pooled OLS
   model_OLS <- lm(t_hat_MATLAB ~ norm_Exposure  + norm_ElectPrice , data = testtt)
@@ -252,6 +265,54 @@ testtt <- dta_totalexposure %>%
                               data = (testtt %>%
                                         filter(NACE_Name != 'Coke, petroleum')), cmethod = 'cgm2')
   summary(model_doublefe_excl.petrol)
+  }
+
+# Run Fixed_Effects Estimation with standard exposure and CostsElectBasepriceMW
+{
+  # Pooled OLS
+  model_OLS <- lm(t_hat_MATLAB ~ TotalExposure  + CostsElectBasepriceTW , data = testtt)
+  summary(model_OLS)
+  
+  # Fixed Effects with only FIT Exposure and year FE
+  model_singlefe_simple <- felm(t_hat_MATLAB ~ TotalExposure | # Model Variable
+                                  year | # Fixed Effects
+                                  0 | # Instrument
+                                  NACE_Name, # Variables for Cluster-robust Standard errors
+                                data = testtt, cmethod = 'cgm2')
+  summary(model_singlefe_simple)
+  
+  # Fixed Effects with FIT Exposure & Electricity and year FE
+  model_singlefe_full <- felm(t_hat_MATLAB ~ TotalExposure + CostsElectBasepriceTW | # Model Variable
+                                year | # Fixed Effects
+                                0 | # Instrument
+                                NACE_Name, # Variables for Cluster-robust Standard errors
+                              data = testtt, cmethod = 'cgm2')
+  summary(model_singlefe_full)
+  
+  # Fixed Effects with FIT Exposure and year and sector FE
+  model_doublefe_simple <- felm(t_hat_MATLAB ~ TotalExposure | # Model Variable
+                                  year + NACE_Name| # Fixed Effects
+                                  0 | # Instrument
+                                  NACE_Name, # Variables for Cluster-robust Standard errors
+                                data = testtt, cmethod = 'cgm2')
+  summary(model_doublefe_simple)
+  
+  # Fixed Effects with FIT Exposure & Electricity and year and sector FE
+  model_doublefe_full <- felm(t_hat_MATLAB ~ TotalExposure + CostsElectBasepriceTW | # Model Variable
+                                year + NACE_Name| # Fixed Effects
+                                0 | # Instrument
+                                NACE_Name, # Variables for Cluster-robust Standard errors
+                              data = testtt, cmethod = 'cgm2')
+  summary(model_doublefe_full)
+  
+  # Fixed Effects with FIT Exposure & Electricity and year and sector FE, excl. Coke
+  model_doublefe_excl.petrol <- felm(t_hat_MATLAB ~ TotalExposure + CostsElectBasepriceTW | # Model Variable
+                                       year + NACE_Name| # Fixed Effects
+                                       0 | # Instrument
+                                       NACE_Name, # Variables for Cluster-robust Standard errors
+                                     data = (testtt %>%
+                                               filter(NACE_Name != 'Coke, petroleum')), cmethod = 'cgm2')
+  summary(model_doublefe_excl.petrol)
 }
   
 # Export to LATEX
@@ -267,6 +328,7 @@ testtt <- dta_totalexposure %>%
             omit.stat=c("LL", "ser", "f"), 
             align=TRUE)
 }
+
 stargazer(model_doublefe_excl.petrol, 
           title="Comparison of Model Results", 
           header=FALSE, 
