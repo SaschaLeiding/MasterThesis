@@ -962,18 +962,23 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
 
 # Create Data for Matlab
 {
-#  options(scipen = 999)
-#  dta_MAT <- dta_analysis %>%
- # select(year, NACE_Name, NACE_Code, ROWROW, DomImp, EXP, DomDom) %>%
-#  filter(!is.na(ROWROW) & NACE_Name != 'Total Manufacturing') %>%
-#  group_by(year) %>%
-#  mutate(year_id = cur_group_id()) %>%
- #   group_by(year_id, NACE_Code) %>%
+  #dta_analysis_exCoke <- readRDS("./Data/dta_analysis_exCoke.rds")
+  #options(scipen = 999)
+  #dta_MAT <- dta_analysis_exCoke %>%
+  #select(year, NACE_Name, NACE_Code, ROWROW, DomImp, EXP, DomDom, vship,
+  #       CO2Total, CO2ElectricityHeat) %>%
+  #filter(!is.na(ROWROW) & NACE_Name != 'Total Manufacturing') %>%
+  #group_by(year) %>%
+  #mutate(year_id = cur_group_id()) %>%
+  #  group_by(year_id, NACE_Code) %>%
   #  arrange(year_id, NACE_Code) %>%
   #  ungroup() %>%
   #  mutate(vshipDNK  = DomDom+EXP,
   #         vshipROW = ROWROW + DomImp) %>%
-  #  select(year_id, NACE_Code, CO2ElectricityHeat)
+    #select(year_id, NACE_Code, vshipROW, vshipDNK) 
+    #select(year_id, NACE_Code, ROWROW, DomImp, EXP, DomDom)
+    #select(year_id, NACE_Code, CO2Total)
+    #select(year_id, NACE_Code, CO2ElectricityHeat)
   
   
 }

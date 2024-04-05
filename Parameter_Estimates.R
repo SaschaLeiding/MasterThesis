@@ -29,8 +29,8 @@ Attention: Variable 'ghg' must be the same in all Scripts
 
 # Load Data
 {
-  dta_analysis <- readRDS("./Data/dta_analysis_elect.rds")
-  #dta_analysis <- readRDS("./Data/dta_analysis_exCoke.rds")
+  #dta_analysis <- readRDS("./Data/dta_analysis_elect.rds")
+  dta_analysis <- readRDS("./Data/dta_analysis_exCoke.rds")
 }
 
 # Define variables for flexibility in Code
@@ -385,7 +385,7 @@ end_year <- 2014 # End year to define time sequence under observation
            ParetoSE = USParetoSE)
     
   
-  saveRDS(dta_parameter, file = "./Data/dta_parameter.rds")
+  saveRDS(dta_parameter, file = "./Data/dta_parameter_exCoke.rds")
 }
 
 # Table 2: Exporting all Parameters for base year to LATEX (NACE)
