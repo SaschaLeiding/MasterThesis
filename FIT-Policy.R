@@ -16,11 +16,11 @@ this Script is to
   library(readxl)
 }
 
+dta_selct <- 'exCoke'
+#dta_selct <- 'nothing'
+
 # Load Data
 {
-  dta_selct <- 'exCoke'
-  #dta_selct <- 'nothing'
-  
   if(dta_selct == 'exCoke'){
     dta_policy <- readRDS("./Data/dta_parameter_exCoke.rds")
     ShocksbyIndustry <- read_xls("./Data/ShocksbyIndustry_exCoke.xls", range = "A1:BH10", col_names = FALSE)
@@ -98,7 +98,7 @@ this Script is to
   }
 }
 
-# Plot with Environmental regulation tax selected Industries - 'Landscape' 8.00 x 6.00
+# Plot Environmental regulation tax for selected Industries - 'Landscape' 8.00 x 6.00
 {
   dta_env_plot_end <- dta_MATLAB %>%
     filter(NACE_Name %in% c('Total Manufacturing',"Chemicals and pharmaceuticals",
@@ -124,7 +124,7 @@ this Script is to
   lplot_env_end
 }
 
-# Plot Emission with Shocks - 'Landscape' 8.00 x 6.00
+# Plot Emission under Counterfactual Shocks - 'Landscape' 8.00 x 6.00
 {
   dta_lplot_shocks <- dta_MATLAB %>%
     filter(NACE_Name == 'Total Manufacturing') %>%
@@ -153,6 +153,67 @@ this Script is to
     geom_vline(xintercept = '2009', color = "black", linetype = "dotted")
   
   lplot_shocks
+}
+
+# Plot Endogeneous Firm Entry and Wages - 'Landscape' 11.00 - 7.00
+{
+  dta_endog_lplot <- dta_MATLAB %>%
+    # Create average M_hat
+    group_by(year) %>%
+    mutate(M_hat_DNK = ifelse(NACE_Name == 'Total Manufacturing',
+                              mean(M_hatDNK, na.rm =TRUE),
+                              M_hatDNK),
+           M_hat_ROW = ifelse(NACE_Name == 'Total Manufacturing',
+                              mean(M_hatROW, na.rm =TRUE),
+                              M_hatROW)) %>%
+    # Select only plotted variables and filter for 'Total Manufacturing
+    select(year, NACE_Name, M_hat_DNK, M_hat_ROW, w_hatDNK, w_hatROW) %>%
+    filter(NACE_Name == 'Total Manufacturing') %>%
+    # Transform data to Longitudinal
+    pivot_longer(cols = 3:ncol(.), names_to = "Variable", values_to = "Value" ) %>%
+    # Create Country DNK or ROW identifier and to baseline = 100
+    mutate(country = ifelse(str_detect(Variable, "ROW$"), "ROW", "DNK"),
+           Value = Value*100) %>%
+    ungroup()
+    
+  
+  plot_Wages <- ggplot(data = (dta_endog_lplot %>%
+                                 filter(str_detect(Variable, "w_hat"))),
+                       aes(x = year, y = Value, color = country, group = country)) +
+    geom_line() +
+    #scale_x_continuous(breaks = seq(2003, max(dta_endog_lplot$year, na.rm = TRUE), by = 1), limits = c(2003, NA)) +
+    labs(x = "Year",
+         y = paste0("Base ", base_year, " = 100"),
+         color = NULL)+
+    theme_classic()
+  plot_Wages
+  
+  plot_FirmEntry <- ggplot(data = (dta_endog_lplot %>%
+                                     filter(str_detect(Variable, "M_hat"))),
+                           aes(x = year, y = Value, color = country, group = country)) +
+    geom_line() + 
+    labs(x = "Year",
+         y = paste0("Base ", base_year, " = 100"),
+         color = NULL) +
+    theme_classic()
+  plot_FirmEntry
+  
+  # Plot in 2x1 - Export as Landscape as 11.00 - 7.00
+  label_plots <- map(c("Wage", "Firm Entry"), 
+                     ~ ggplot() +
+                       theme_void() +
+                       theme(plot.margin = margin(0, 0)) +
+                       annotate("text", x = 0.5, y = 0.5, label = .x,
+                                fontface = "bold", hjust = 0.5))
+  
+  
+  combined_Endo_lplot <- (Reduce('+', label_plots) + plot_layout(ncol = 2)) /
+    ( plot_Wages + plot_FirmEntry) +
+    plot_layout(guides = 'collect', axis_titles = "collect", heights = c(1, 10)) &
+    theme(legend.position = "bottom",
+          legend.title = element_blank())
+  combined_Endo_lplot
+  
 }
 
 # Plot Fit-Exposure - fit-tariff x energy use per industry
@@ -202,28 +263,31 @@ this Script is to
     ungroup()
 }
 
-testtt <- dta_totalexposure %>%
-  filter(!is.na(NACE_Name)) %>%
-  filter(NACE_Name != 'Total Manufacturing') %>%
-  #filter(year >= 2009) %>%
-  select(year, NACE_Name, !!sym(y_var), TotalExposure, UseElectricity,
-         electBaseprice, electVATfreeprice, electFinalprice) %>% #electVATfreeprice #electFinalprice
-  group_by(NACE_Name) %>%
-  mutate(# Control Variable
-         CostsElectBaseprice = electBaseprice * UseElectricity,
-         norm_ElectPrice = (CostsElectBaseprice/CostsElectBaseprice[year == base_year])*100,
-         CostsElectBasepriceMW = CostsElectBaseprice*1000,
-         CostsElectBasepriceTW = CostsElectBaseprice*1000000000,
-        
-         # Independent Normalized
-         TotalExposure1 = TotalExposure+0.001,#/1000000,
-         norm_Exposure = (TotalExposure1/TotalExposure1[year == base_year])*100) %>%
-  ungroup()
+# Transform Variables to normalized values and Base Price electricity from DKK per kwH to TWh
+{
+  dta_estim <- dta_totalexposure %>%
+    filter(!is.na(NACE_Name)) %>%
+    filter(NACE_Name != 'Total Manufacturing') %>%
+    #filter(year >= 2009) %>%
+    select(year, NACE_Name, !!sym(y_var), TotalExposure, UseElectricity,
+           electBaseprice, electVATfreeprice, electFinalprice) %>% #electVATfreeprice #electFinalprice
+    group_by(NACE_Name) %>%
+    mutate(# Control Variable
+      CostsElectBaseprice = electBaseprice * UseElectricity,
+      norm_ElectPrice = (CostsElectBaseprice/CostsElectBaseprice[year == base_year])*100,
+      CostsElectBasepriceMW = CostsElectBaseprice*1000,
+      CostsElectBasepriceTW = CostsElectBaseprice*1000000000,
+      
+      # Independent Normalized
+      TotalExposure1 = TotalExposure+0.001,#/1000000,
+      norm_Exposure = (TotalExposure1/TotalExposure1[year == base_year])*100) %>%
+    ungroup()
+}
 
 # Run Fixed_Effects Estimation with NORMALIZED exposure
 {
   # Pooled OLS
-  model_OLS <- lm(t_hat_MATLAB ~ norm_Exposure  + norm_ElectPrice , data = testtt)
+  model_OLS <- lm(t_hat_MATLAB ~ norm_Exposure  + norm_ElectPrice , data = dta_estim)
   summary(model_OLS)
   
   # Fixed Effects with only FIT Exposure and year FE
@@ -231,7 +295,7 @@ testtt <- dta_totalexposure %>%
                         year | # Fixed Effects
                         0 | # Instrument
                         NACE_Name, # Variables for Cluster-robust Standard errors
-                      data = testtt, cmethod = 'cgm2')
+                      data = dta_estim, cmethod = 'cgm2')
   summary(model_singlefe_simple)
   
   # Fixed Effects with FIT Exposure & Electricity and year FE
@@ -239,7 +303,7 @@ testtt <- dta_totalexposure %>%
                      year | # Fixed Effects
                      0 | # Instrument
                      NACE_Name, # Variables for Cluster-robust Standard errors
-                   data = testtt, cmethod = 'cgm2')
+                   data = dta_estim, cmethod = 'cgm2')
   summary(model_singlefe_full)
   
   # Fixed Effects with FIT Exposure and year and sector FE
@@ -247,7 +311,7 @@ testtt <- dta_totalexposure %>%
                                 year + NACE_Name| # Fixed Effects
                                 0 | # Instrument
                                 NACE_Name, # Variables for Cluster-robust Standard errors
-                              data = testtt, cmethod = 'cgm2')
+                              data = dta_estim, cmethod = 'cgm2')
   summary(model_doublefe_simple)
   
   # Fixed Effects with FIT Exposure & Electricity and year and sector FE
@@ -255,7 +319,7 @@ testtt <- dta_totalexposure %>%
                           year + NACE_Name| # Fixed Effects
                           0 | # Instrument
                           NACE_Name, # Variables for Cluster-robust Standard errors
-                        data = testtt, cmethod = 'cgm2')
+                        data = dta_estim, cmethod = 'cgm2')
   summary(model_doublefe_full)
   
   # Fixed Effects with FIT Exposure & Electricity and year and sector FE, excl. Coke
@@ -263,7 +327,7 @@ testtt <- dta_totalexposure %>%
                                 year + NACE_Name| # Fixed Effects
                                 0 | # Instrument
                                 NACE_Name, # Variables for Cluster-robust Standard errors
-                              data = (testtt %>%
+                              data = (dta_estim %>%
                                         filter(NACE_Name != 'Coke, petroleum')), cmethod = 'cgm2')
   summary(model_doublefe_excl.petrol)
   }
@@ -271,7 +335,7 @@ testtt <- dta_totalexposure %>%
 # Run Fixed_Effects Estimation with standard exposure and norm. Exposure Electricity
 {
   # Pooled OLS
-  model_OLS <- lm(t_hat_MATLAB ~ TotalExposure  + norm_ElectPrice , data = testtt)
+  model_OLS <- lm(t_hat_MATLAB ~ TotalExposure  + norm_ElectPrice , data = dta_estim)
   summary(model_OLS)
   
   # Fixed Effects with only FIT Exposure and year FE
@@ -279,7 +343,7 @@ testtt <- dta_totalexposure %>%
                                   year | # Fixed Effects
                                   0 | # Instrument
                                   NACE_Name, # Variables for Cluster-robust Standard errors
-                                data = testtt, cmethod = 'cgm2')
+                                data = dta_estim, cmethod = 'cgm2')
   summary(model_singlefe_simple)
   
   # Fixed Effects with FIT Exposure & Electricity and year FE
@@ -287,7 +351,7 @@ testtt <- dta_totalexposure %>%
                                 year | # Fixed Effects
                                 0 | # Instrument
                                 NACE_Name, # Variables for Cluster-robust Standard errors
-                              data = testtt, cmethod = 'cgm2')
+                              data = dta_estim, cmethod = 'cgm2')
   summary(model_singlefe_full)
   
   # Fixed Effects with FIT Exposure and year and sector FE
@@ -295,7 +359,7 @@ testtt <- dta_totalexposure %>%
                                   year + NACE_Name| # Fixed Effects
                                   0 | # Instrument
                                   NACE_Name, # Variables for Cluster-robust Standard errors
-                                data = testtt, cmethod = 'cgm2')
+                                data = dta_estim, cmethod = 'cgm2')
   summary(model_doublefe_simple)
   
   # Fixed Effects with FIT Exposure & Electricity and year and sector FE
@@ -303,7 +367,7 @@ testtt <- dta_totalexposure %>%
                                 year + NACE_Name| # Fixed Effects
                                 0 | # Instrument
                                 NACE_Name, # Variables for Cluster-robust Standard errors
-                              data = testtt, cmethod = 'cgm2')
+                              data = dta_estim, cmethod = 'cgm2')
   summary(model_doublefe_full)
   
   # Fixed Effects with FIT Exposure & Electricity and year and sector FE, excl. Coke
@@ -311,32 +375,21 @@ testtt <- dta_totalexposure %>%
                                        year + NACE_Name| # Fixed Effects
                                        0 | # Instrument
                                        NACE_Name, # Variables for Cluster-robust Standard errors
-                                     data = (testtt %>%
+                                     data = (dta_estim %>%
                                                filter(NACE_Name != 'Coke, petroleum')), cmethod = 'cgm2')
   summary(model_doublefe_excl.petrol)
 }
   
 # Export to LATEX
 {
-  stargazer(model_OLS, model_doublefe_simple, model_singlefe_full,
-            model_doublefe_full, #model_doublefe_full_2, 
+  stargazer(model_OLS, model_doublefe_simple, 
+            model_singlefe_full, model_doublefe_full, 
             title="Comparison of Model Results", 
             header=FALSE, 
             type="latex", 
             model.numbers=TRUE, 
-            column.labels=c("(1)", "(2)", "(3)", "(4)", "(5)"), 
+            column.labels=c("(1)", "(2)", "(3)", "(4)"), 
             covariate.labels=c("Exposure", "Electricity Costs"),
             omit.stat=c("LL", "ser", "f"), 
             align=TRUE)
 }
-
-stargazer(model_doublefe_full, 
-          title="Comparison of Model Results", 
-          header=FALSE, 
-          type="latex", 
-          model.numbers=TRUE, 
-          column.labels=c("(1)"), 
-          covariate.labels=c("Exposure", "Electricity Costs"),
-          omit.stat=c("LL", "ser", "f"), 
-          align=TRUE)
-
