@@ -218,6 +218,26 @@ dta_selct <- 'exCoke'
 
 # Plot Fit-Exposure - fit-tariff x energy use per industry
 # Plot normalized GHG development & normalized Environmental regulation tax & FIT-Exposure for 'Total Manuf' <- two y-axis
+{
+  dta_lplot_FIT <- dta_MATLAB %>%
+    filter(NACE_Name == 'Total Manufacturing' & year >= '2009') %>%
+    select(year, starts_with('FIT')) %>%
+    pivot_longer(cols = 2:ncol(.), names_to = 'FIT', values_to = 'FITValue') %>%
+    mutate(FIT = str_replace(FIT, "^FIT", ""),
+           year = as.numeric(year)) %>%
+    ungroup
+  
+  lplot_FIT <- ggplot(data = dta_lplot_FIT,
+                      aes(x=year, y=FITValue, color=FIT, group=FIT)) +
+    geom_line()+
+    labs(x = "Year",
+         y = "DKK per kWh") +
+    theme_classic() +
+    theme(legend.position = "bottom",
+          legend.title = element_blank(),
+          panel.grid.major.y = element_line(color = "#8B8878"))
+  lplot_FIT
+}
 
 # Calculate FIT-Exposure
 # Sum by fuel type of change in Electricity Generation x FIT in given year
