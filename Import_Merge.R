@@ -641,10 +641,6 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
   attr(dta_decomp$expend, 'label') <- 'm DKK'
   attr(dta_decomp$realexpend, 'label') <- 'm DKK'
   attr(dta_decomp$realouput_intensity, 'label') <- '1,000 DKK per ton'
-  
-  dta_ElectbyFirm <- dta_decomp %>%
-    select(year, NACE_Name, ElectbyFirm, UseElectricity, firms)
-  print(dta_ElectbyFirm)
 }
 
 # Create NACE-classification data
@@ -671,6 +667,11 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
     mutate(output_share = realoutput/(sum(realoutput)/2), # divide by 2 because the sum includes each indiv. and the total together
            wage_manuf = CompEmployees[NACE_Name == 'Total Manufacturing'] / Employees[NACE_Name ==  'Total Manufacturing'],
            UseElectricityShare = UseElectricity/(sum(UseElectricity)/2))
+  
+  
+  dta_ElectbyFirm <- dta_NACE %>%
+    select(year, NACE_Name, ElectbyFirm, UseElectricity, firms)
+  print(dta_ElectbyFirm)
 }
 
 # EUROSTAT Country Name & Code
