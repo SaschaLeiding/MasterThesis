@@ -68,10 +68,6 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
   # Load EUROSTAT Electricity Price and Production Data in NATIONAL CURRENCY
   # Prices = national Currency per kWh 
   # Production = GWh
-  #EUROSTAT_ElectPrices_kWh_01 <- read_xlsx("./Data/EUROSTAT_ElectricityPrices_Industry_01.xlsx",
-  #                                     range = "A11:V101", sheet = 'Sheet 1')
-  #EUROSTAT_ElectPrices_kWh_02 <- read_xlsx("./Data/EUROSTAT_ElectricityPrices_Industry_02.xlsx",
-  #                                     range = "A11:BP134", sheet = 'Sheet 1')
   EUROSTAT_Production_Electricity <- read_xlsx("./Data/EUROSTAT_Production_Electricity.xlsx",
                                                range = "A9:V829", sheet = 'Sheet 1')
   EUROSTAT_Production_Heat <- read_xlsx("./Data/EUROSTAT_Production_Heat.xlsx",
