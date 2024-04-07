@@ -533,32 +533,6 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
            UseElectricityShare = UseElectricity/(sum(UseElectricity)/2))
 }
 
-# Create Shapiro&Walker(ISIC)-classification data
-{
-  dta_ISICsum <- dta_decomp %>%
-    filter(!is.na(ISIC_Code)) %>%
-    group_by(year, ISIC_Code) %>%
-    filter(n()>1) %>%
-    summarise(across(where(is.numeric), sum, na.rm = TRUE), .groups = 'drop') %>%
-    ungroup() %>%
-    mutate(!!varname_ghgintensity := !!sym(ghg)/(voutput/1000),
-           realouput_intensity = (realoutput * (!!sym(varname_ghgintensity)))) %>%
-    left_join(unique(ppi_mapp %>% select(ISIC_Code, ISIC_Name)), join_by(ISIC_Code == ISIC_Code))
-  
-  ISICcode_sum <- unique(dta_ISICsum$ISIC_Code)
-  
-  dta_ISIC <- dta_ISICsum %>%
-    full_join(dta_decomp %>%
-                filter(!is.na(ISIC_Code) & !(ISIC_Code %in% ISICcode_sum))) %>%
-    mutate(NACE_Code = NA,
-           NACE_Name = NA,
-           classsystem = 'ISIC') %>%
-    group_by(year) %>%
-    mutate(output_share = realoutput/(sum(realoutput)/2),# divide by 2 because the sum includes each idniv. and the total together
-           wage_manuf = CompEmployees[ISIC_Name == 'Total Manufacturing'] / Employees[ISIC_Name ==  'Total Manufacturing'],
-           UseElectricityShare = UseElectricity/(sum(UseElectricity)/2))
-}
-
 # EUROSTAT Country Name & Code
 {
   country_EUROSTAT <- c("Albania", "Argentina", "Australia", "Austria", "Belgium",
