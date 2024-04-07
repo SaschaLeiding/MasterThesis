@@ -18,8 +18,8 @@ this Script is to
 
 # Load Data
 {
-  #dta_selct <- 'exCoke'
-  dta_selct <- 'nothing'
+  dta_selct <- 'exCoke'
+  #dta_selct <- 'nothing'
   
   if(dta_selct == 'exCoke'){
     dta_policy <- readRDS("./Data/dta_parameter_exCoke.rds")
@@ -378,7 +378,7 @@ testtt <- dta_totalexposure %>%
             align=TRUE)
 }
 
-stargazer(model_doublefe_excl.petrol, 
+stargazer(model_doublefe_full, 
           title="Comparison of Model Results", 
           header=FALSE, 
           type="latex", 
