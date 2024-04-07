@@ -58,10 +58,6 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
   ppi_mapp117 <- read_xlsx("./Data/Mapping_PPI_117grouping.xlsx", range = "B3:G122")
   ppi_mapp69 <- read_xlsx("./Data/Mapping_PPI_69grouping.xlsx", range = "B2:C73")
   
-  # Load Eurostat Trade data in EUR
-  EUROSTAT_Import <- read_xlsx("./Data/EUROSTAT_Trade_Import.xlsx", sheet = "Sheet 1", range = "A10:E730")
-  EUROSTAT_Export <- read_xlsx("./Data/EUROSTAT_Trade_Export.xlsx", sheet = "Sheet 1", range = "A10:E730")
-  
   # Load OECD Exchange rate from 1,000 USD
   OECDFX <- read_xlsx("./Data/OECD_ExchangeRate.xlsx", range = "C3:Z67")
   
@@ -444,144 +440,6 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
   rm(ElectricityHeat_Production)
 }
 
-# Trade Data - from EUR to DKK
-# CAN DELETE WHOLE BLOCK
-{
-  # Classification Names
-  {
-    trade_classif <- c("Food products", "Beverages", "Tobacco products",
-                       "Textiles", "Wearing apparel", "Leather and related products",
-                       "Wood and of products of wood and cork, except furniture; articles of straw and plaiting materials",
-                       "Paper and paper products", "Printing and recording services",
-                       "Coke and refined petroleum products",
-                       "Chemicals and chemical products","Basic pharmaceutical products and pharmaceutical preparations",                                           
-                       "Rubber and plastic products",                                                                             
-                       "Other non-metallic mineral products",
-                       "Basic metals",
-                       "Fabricated metal products, except machinery and equipment",
-                       "Computer, electronic and optical products", "Electrical equipment",
-                       "Machinery and equipment n.e.c.",
-                       "Motor vehicles, trailers and semi-trailers",
-                       "Other transport equipment",
-                       "Furniture",
-                       "Other manufactured goods")
-    ISIC_Name <- c("Food, beverages, tobacco", "Food, beverages, tobacco", "Food, beverages, tobacco",
-                        "Textiles, apparel, fur, leather", "Textiles, apparel, fur, leather", "Textiles, apparel, fur, leather",
-                        "Wood products",
-                        "Paper and publishing", "Paper and publishing",
-                        "Coke, refined petroleum, fuels",
-                        "Chemicals", "Chemicals",
-                        "Rubber and plastics",
-                        "Other non-metallic minerals",    
-                        "Basic metals",
-                        "Fabricated metals",
-                        "Office, computing, electrical", "Office, computing, electrical",
-                        "Machinery and equipment",
-                        "Motor vehicles, trailers",
-                        "Other transport equipment",
-                        "Furniture, other, recycling",
-                        "Medical, precision, and optical")
-    NACE_Name <- c("Food, beverages, tobacco", "Food, beverages, tobacco", "Food, beverages, tobacco",
-                        "Textiles, wearing apparel, leather", "Textiles, wearing apparel, leather", "Textiles, wearing apparel, leather",
-                        "Wood products",                         
-                        "Pulp, paper, publishing", "Pulp, paper, publishing",
-                        "Coke, petroleum",
-                        "Chemicals and pharmaceuticals", "Chemicals and pharmaceuticals",
-                        "Rubber and plastics",
-                        "Non-metallic minerals",
-                        "Basic Metals",
-                        "Metal products, electronics, machinery", "Metal products, electronics, machinery",
-                        "Metal products, electronics, machinery",
-                        "Metal products, electronics, machinery",
-                        "Vehicles, other transport, n.e.c.",
-                        "Vehicles, other transport, n.e.c.",
-                        "Vehicles, other transport, n.e.c.",
-                        "Metal products, electronics, machinery")
-    dta_tradename <- as.data.frame(cbind(trade_classif, ISIC_Name, NACE_Name))
-  }
-  
-  # Colnames of EUROSTAT Export & Import
-  {
-    colnames(EUROSTAT_Export)[1] <- 'classif'
-    colnames(EUROSTAT_Import)[1] <- 'classif'
-    colnames(EUROSTAT_Export)[2] <- 'year'
-    colnames(EUROSTAT_Import)[2] <- 'year'
-    colnames(EUROSTAT_Export)[3] <- 'ExportROW'
-    colnames(EUROSTAT_Import)[3] <- 'ImportROW'
-    colnames(EUROSTAT_Export)[4] <- 'ExportEU'
-    colnames(EUROSTAT_Import)[4] <- 'ImportEU'
-    colnames(EUROSTAT_Export)[5] <- 'ExportWorld'
-    colnames(EUROSTAT_Import)[5] <- 'ImportWorld'
-  }
-  
-  # Create Trade Data of Denmark
-  {
-    dta_trade_interim <- EUROSTAT_Export %>%
-      left_join(EUROSTAT_Import, join_by(classif == classif, year == year)) %>%
-      mutate(across(3:8, as.numeric),
-             NetExportsROW = ExportROW - ImportROW,
-             NetExportsEU = ExportEU - ImportEU,
-             NetExportsWorld = ExportWorld - ImportWorld) %>%
-      #Transform from EUR to DKK
-      left_join((OECDFX %>%
-                   filter(Location %in% c("Euro area (19 countries)", "Denmark")) %>%
-                   pivot_longer(cols = starts_with("20"),
-                                names_to = 'year',
-                                values_to = 'FXrateUSD') %>%
-                   mutate(FXrateUSD = ifelse(year > 2002 & Location == "Euro area (19 countries)",
-                                             as.numeric(FXrateUSD),
-                                             as.numeric(FXrateUSD)/1000)) %>%
-                   pivot_wider(names_from = Location,
-                               values_from = FXrateUSD) %>%
-                   rename(DKKUSD = Denmark,
-                          EURUSD = "Euro area (19 countries)") %>%
-                   mutate(USDEUR = 1/EURUSD) %>%
-                   select(year,DKKUSD, USDEUR)),
-                join_by(year == year)) %>%
-      mutate(across(3:11, ~(.x*USDEUR)*DKKUSD)) %>%
-      select(-c("USDEUR", "DKKUSD")) %>%
-      left_join(dta_tradename, join_by(classif == trade_classif))
-  }
-  
-  # Create Trade NACE & ISIC Data
-  {
-    # Create NACE Data
-    dta_trade_NACE <- dta_trade_interim %>%
-      #select(!ISIC_Name) %>%
-      filter(!is.na(NACE_Name)) %>%
-      group_by(year, NACE_Name) %>%
-      summarise(across(.cols = where(is.numeric), .fns = sum, na.rm = TRUE),.groups = 'drop') %>%
-      mutate(ISIC_Name = NA)
-      
-    
-    # Create ISIC Data
-    dta_trade_ISIC <- dta_trade_interim %>%
-      filter(!is.na(ISIC_Name)) %>%
-      group_by(year, ISIC_Name) %>%
-      summarise(across(.cols = where(is.numeric), .fns = sum, na.rm = TRUE),.groups = 'drop') %>%
-      mutate(NACE_Name = NA)
-  }
-  
-  # Create 'Total Manufacturing'
-  {
-    dta_tradeTotal <- dta_trade_interim %>%
-      filter(!is.na(ISIC_Name)) %>%
-      group_by(year) %>%
-      summarise(across(.cols = where(is.numeric), .fns = sum, na.rm = TRUE), .groups = 'drop') %>%
-      mutate(#classif = 'Total Manufacturing',
-             ISIC_Name = 'Total Manufacturing',
-             #       Class_PPI = 'C Manufacturing',
-             NACE_Name = 'Total Manufacturing')
-  }
-  
-  # Merge Trade data
-  dta_trade <- rbind(dta_tradeTotal, dta_trade_ISIC, dta_trade_NACE)
-  
-  rm(dta_trade_interim)
-  rm(dta_trade_ISIC)
-  rm(dta_trade_NACE)
-  rm(dta_tradeTotal)
-}
 
 # Calculate Total of Manufacturing #ENERGY USE appended through 'cost_ener_use', thus Statbank data
 {
@@ -666,7 +524,6 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
   dta_NACE <- dta_NACEsum %>%
     full_join(dta_decomp %>%
                 filter(!is.na(NACE_Code) & !(NACE_Code %in% NACEcode_sum))) %>%
-    left_join(dta_trade, join_by(NACE_Name == NACE_Name, year == year)) %>%
     mutate(ISIC_Code = NA,
            ISIC_Name = NA,
            classsystem = 'NACE') %>%
@@ -693,7 +550,6 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
   dta_ISIC <- dta_ISICsum %>%
     full_join(dta_decomp %>%
                 filter(!is.na(ISIC_Code) & !(ISIC_Code %in% ISICcode_sum))) %>%
-    left_join(dta_trade, join_by(ISIC_Name == ISIC_Name, year == year)) %>%
     mutate(NACE_Code = NA,
            NACE_Name = NA,
            classsystem = 'ISIC') %>%
