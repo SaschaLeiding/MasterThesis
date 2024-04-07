@@ -504,7 +504,7 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
         geom_vline(xintercept = 2009, color = "black", linetype = "dotted") +
         scale_colour_manual(values = c("black", "green", "blue", "red", "orange", "violet"),
                             labels = c("> 70,000 MWh", "<19,999 MWh", "<1,999 MWh",
-                                       "<20 MWh", "499 MWh", "<69,999 MWh")) +
+                                       "<20 MWh", "<499 MWh", "<69,999 MWh")) +
         scale_size_manual(values = c('>70000MWh' = 1, '19999MWh' = 0.5, '1999MWh' = 0.5,
                                      '20MWh' = 0.5, '499MWh' = 0.5, '69999MWh' = 0.5),
                           guide = FALSE) +
