@@ -268,54 +268,6 @@ testtt <- dta_totalexposure %>%
   summary(model_doublefe_excl.petrol)
   }
 
-# Run Fixed_Effects Estimation with standard exposure and CostsElectBasepriceMW
-{
-  # Pooled OLS
-  model_OLS <- lm(t_hat_MATLAB ~ TotalExposure  + CostsElectBasepriceTW , data = testtt)
-  summary(model_OLS)
-  
-  # Fixed Effects with only FIT Exposure and year FE
-  model_singlefe_simple <- felm(t_hat_MATLAB ~ TotalExposure | # Model Variable
-                                  year | # Fixed Effects
-                                  0 | # Instrument
-                                  NACE_Name, # Variables for Cluster-robust Standard errors
-                                data = testtt, cmethod = 'cgm2')
-  summary(model_singlefe_simple)
-  
-  # Fixed Effects with FIT Exposure & Electricity and year FE
-  model_singlefe_full <- felm(t_hat_MATLAB ~ TotalExposure + CostsElectBasepriceTW | # Model Variable
-                                year | # Fixed Effects
-                                0 | # Instrument
-                                NACE_Name, # Variables for Cluster-robust Standard errors
-                              data = testtt, cmethod = 'cgm2')
-  summary(model_singlefe_full)
-  
-  # Fixed Effects with FIT Exposure and year and sector FE
-  model_doublefe_simple <- felm(t_hat_MATLAB ~ TotalExposure | # Model Variable
-                                  year + NACE_Name| # Fixed Effects
-                                  0 | # Instrument
-                                  NACE_Name, # Variables for Cluster-robust Standard errors
-                                data = testtt, cmethod = 'cgm2')
-  summary(model_doublefe_simple)
-  
-  # Fixed Effects with FIT Exposure & Electricity and year and sector FE
-  model_doublefe_full <- felm(t_hat_MATLAB ~ TotalExposure + CostsElectBasepriceTW | # Model Variable
-                                year + NACE_Name| # Fixed Effects
-                                0 | # Instrument
-                                NACE_Name, # Variables for Cluster-robust Standard errors
-                              data = testtt, cmethod = 'cgm2')
-  summary(model_doublefe_full)
-  
-  # Fixed Effects with FIT Exposure & Electricity and year and sector FE, excl. Coke
-  model_doublefe_excl.petrol <- felm(t_hat_MATLAB ~ TotalExposure + CostsElectBasepriceTW | # Model Variable
-                                       year + NACE_Name| # Fixed Effects
-                                       0 | # Instrument
-                                       NACE_Name, # Variables for Cluster-robust Standard errors
-                                     data = (testtt %>%
-                                               filter(NACE_Name != 'Coke, petroleum')), cmethod = 'cgm2')
-  summary(model_doublefe_excl.petrol)
-}
-
 # Run Fixed_Effects Estimation with standard exposure and norm. Exposure Electricity
 {
   # Pooled OLS
