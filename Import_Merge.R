@@ -76,6 +76,10 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
                                                range = "A9:V829", sheet = 'Sheet 1')
   EUROSTAT_Production_Heat <- read_xlsx("./Data/EUROSTAT_Production_Heat.xlsx",
                                                range = "A9:V829", sheet = 'Sheet 1')
+  EUROSTAT_ElectPrices_DNK_kWh_01 <- read_xlsx("./Data/EUROSTAT_ElectricityPrices_DNK_01.xlsx",
+                                           range = "A11:L38", sheet = 'Sheet 1')
+  EUROSTAT_ElectPrices_DNK_kWh_02 <- read_xlsx("./Data/EUROSTAT_ElectricityPrices_DNK_02.xlsx",
+                                           range = "A11:AJ32", sheet = 'Sheet 1')
 }
 
 # Define variables for code flexibility
@@ -440,6 +444,107 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
   rm(ElectricityHeat_Production)
 }
 
+# TEst NEW ELECTRICITY PRICE Data
+{
+  # Create List with Consumption groups
+  {
+    Elect_consGroup_until_prior <- c("Industry - Ia (Annual consumption: 30 MWh; maximum demand: 30 kW; annual load: 1 000 hours) (for Luxembourg: 50% power reduction during hours of heavy loading)",
+                               "Industry - Ib (Annual consumption: 50 MWh; maximum demand: 50 kW; annual load: 1 000 hours) (for Luxembourg: 50% power reduction during hours of heavy loading)",
+                               "Industry - Ic (Annual consumption: 160 MWh; maximum demand: 100 kW; annual load: 1 600 hours) (for Luxembourg: 50% power reduction during hours of heavy loading)",
+                               "Industry - Id (Annual consumption: 1 250 MWh; maximum demand: 500 kW; annual load: 2 500 hours) (for Luxembourg: 50% power reduction during hours of heavy loading)",
+                               "Industry - Ie (Annual consumption: 2 000 MWh; maximum demand: 500 kW; annual load: 4 000 hours) (for Luxembourg: 50% power reduction during hours of heavy loading)",
+                               "Industry - If (Annual consumption: 10 000 MWh; maximum demand: 2 500 kW; annual load: 4 000 hours) (for Luxembourg: 50% power reduction during hours of heavy loading)",
+                               "Industry - Ig (Annual consumption: 24 000 MWh; maximum demand: 4 000 kW; annual load: 6 000 hours) (for Luxembourg: 50% power reduction during hours of heavy loading)",
+                               "Industry - Ih (Annual consumption: 50 000 MWh; maximum demand: 10 000 kW; annual load: 5 000 hours) (for Luxembourg: 50% power reduction during hours of heavy loading)",
+                               "Industry - Ii (Annual consumption: 70 000 MWh; maximum demand: 10 000 kW; annual load: 7 000 hours) (for Luxembourg: 50% power reduction during hours of heavy loading)"
+                               )
+  
+    Elect_consGroup_until_post <- c("20MWh",
+                                    "499MWh",
+                                    "499MWh",
+                                    "1999MWh",
+                                    "1999MWh",
+                                    "19999MWh",
+                                    "69999MWh",
+                                    "69999MWh",
+                                    ">70000MWh")
+    Elect_consGroup_until <- cbind(Elect_consGroup_until_prior, Elect_consGroup_until_post)
+    rm(Elect_consGroup_until_prior)
+    rm(Elect_consGroup_until_post)
+    
+    Elect_consGroup_since_prior <- c("Consumption 150 000 MWh or over - band IG",
+                                     "Consumption from 2 000 MWh to 19 999 MWh - band ID",
+                                     "Consumption from 20 000 MWh to 69 999 MWh - band IE",
+                                     "Consumption from 20 MWh to 499 MWh - band IB",
+                                     "Consumption from 500 MWh to 1 999 MWh - band IC",
+                                     "Consumption from 70 000 MWh to 149 999 MWh - band IF",
+                                     "Consumption less than 20 MWh - band IA")
+    Elect_consGroup_since_post <- c(">70000MWh",
+                                    "19999MWh",
+                                    "69999MWh",
+                                    "499MWh",
+                                    "1999MWh",
+                                    ">70000MWh",
+                                    "20MWh")
+    Elect_consGroup_since <- cbind(Elect_consGroup_since_prior, Elect_consGroup_since_post)
+    rm(Elect_consGroup_since_prior)
+    rm(Elect_consGroup_since_post)
+  }
+  
+ Electricity_Price_01 <- EUROSTAT_ElectPrices_DNK_kWh_01 %>%
+   mutate(across(3:ncol(.), as.numeric)) %>%
+   rename(price_type = `TAX (Labels)`) %>%
+   left_join(as.data.frame(Elect_consGroup_until), join_by(`CONSOM (Labels)`==Elect_consGroup_until_prior)) %>%
+   # Fill missing values for groups with assignment large than 1,999MWh
+   group_by(price_type) %>%
+   mutate(across(.cols = where(is.numeric), ~ ifelse(is.na(.x), .x[Elect_consGroup_until_post == '1999MWh'][1], .x))) %>%
+   # Summarise to fit second dataset classification
+   group_by(price_type, Elect_consGroup_until_post) %>%
+   summarise(across(.cols = where(is.numeric), .fns = mean, na.rm = TRUE), .groups = 'drop') %>% 
+   # Transform to Longitudinal data and average price per year
+   group_by(price_type) %>%
+   pivot_longer(cols = 3:ncol(.), names_to = 'year', values_to = '.value') %>%
+   mutate(half = str_sub(year, -2),
+          year = str_sub(year, 1, 4)) %>%
+   group_by(price_type, Elect_consGroup_until_post, year) %>%
+   summarise(avgValue = mean(.value)) %>%
+   # Transform to longitudinal Data but 3 variables as columns
+   pivot_wider(names_from = price_type, values_from =avgValue) %>%
+   # Rename Columns
+   rename(consGroups = Elect_consGroup_until_post,
+          electBaseprice = 'Excluding taxes and levies',
+          electVATfreeprice = 'Excluding VAT and other recoverable taxes and levies',
+          electFinalprice = 'All taxes and levies included') %>%
+   ungroup()
+   
+ Electricity_Price_02 <- EUROSTAT_ElectPrices_DNK_kWh_02 %>%
+   mutate(across(3:ncol(.), as.numeric)) %>%
+   rename(price_type = `TAX (Labels)`) %>%
+   left_join(as.data.frame(Elect_consGroup_since), join_by(`NRG_CONS (Labels)`==Elect_consGroup_since_prior)) %>%
+   select(-'2007-S1') %>%
+   # Summarise to fit second dataset classification
+   group_by(price_type, Elect_consGroup_since_post) %>%
+   summarise(across(.cols = where(is.numeric), .fns = mean, na.rm = TRUE), .groups = 'drop') %>% 
+   # Transform to Longitudinal data and average price per year
+   group_by(price_type) %>%
+   pivot_longer(cols = 3:ncol(.), names_to = 'year', values_to = '.value') %>%
+   mutate(half = str_sub(year, -2),
+          year = str_sub(year, 1, 4)) %>%
+   group_by(price_type, Elect_consGroup_since_post, year) %>%
+   summarise(avgValue = mean(.value)) %>%
+   # Transform to longitudinal Data but 3 variables as columns
+   pivot_wider(names_from = price_type, values_from =avgValue) %>%
+   # Rename Columns
+   rename(consGroups = Elect_consGroup_since_post,
+          electBaseprice = 'Excluding taxes and levies',
+          electVATfreeprice = 'Excluding VAT and other recoverable taxes and levies',
+          electFinalprice = 'All taxes and levies included') %>%
+   ungroup()
+ 
+ Electricity_Price <- rbind(Electricity_Price_01, Electricity_Price_02)
+   
+   
+ }
 
 # Calculate Total of Manufacturing #ENERGY USE appended through 'cost_ener_use', thus Statbank data
 {
@@ -814,9 +919,6 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
   
   
 }
-
-
-
 
 # Save the Data
 {
