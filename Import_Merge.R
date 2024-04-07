@@ -641,6 +641,10 @@ Attention: Variable 'ghg' & 'base_year' must be the same in all Scripts
   attr(dta_decomp$expend, 'label') <- 'm DKK'
   attr(dta_decomp$realexpend, 'label') <- 'm DKK'
   attr(dta_decomp$realouput_intensity, 'label') <- '1,000 DKK per ton'
+  
+  dta_ElectbyFirm <- dta_decomp %>%
+    select(year, NACE_Name, ElectbyFirm, UseElectricity, firms)
+  print(dta_ElectbyFirm)
 }
 
 # Create NACE-classification data
